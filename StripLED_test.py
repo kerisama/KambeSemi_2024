@@ -32,13 +32,13 @@ def setColor(strip,color,wait_ms=50):
 # メインプログラム
 try:
     while True:
-        setColor(strip.color(255,0,0)) # 赤に点灯
-        time.sleep(1)
-        setColor(strip.color(0,255,0)) # 緑に点灯
-        time.sleep(1)
-        setColor(strip.color(0,0,255)) # 青に点灯
-        time.sleep(1)
+        setColor(strip,color(255,0,0)) # 赤に点灯
+        time.sleep(10)
+        setColor(strip,Color(0,255,0)) # 緑に点灯
+        time.sleep(10)
+        setColor(strip,Color(0,0,255)) # 青に点灯
+        time.sleep(10)
 
 # 終了処理
 except KeyboardInterrupt:
-    setColor(strip.color(0,0,0))   # LED消灯
+    setColor(strip,Color(0,0,0))   # LED消灯
