@@ -1,3 +1,19 @@
-import subprocess
 
-subprocess.Popen(['mpg321', 'sample1.mp3'])
+#coding:utf-8
+
+import RPi.GPIO as GPIO
+import time
+
+pin = 21
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(pin,GPIO.OUT,initial=GPIO.LOW)
+
+p = GPIO.PWM(pin,1)
+p.start(50)
+
+p.ChangeFrequency(220)
+time.sleep(3)
+
+p.stop()
+GPIO.cleanup()
