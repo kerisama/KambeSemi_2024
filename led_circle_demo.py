@@ -2,6 +2,7 @@ from rpi_ws281x import PixelStrip, Color
 import argparse
 import time
 import math
+import random
 
 # パーサー設定
 parser = argparse.ArgumentParser()
@@ -58,31 +59,44 @@ def clear_display():
 
 def draw_circle(x0, y0, radius, color):
     """円を描画"""
-    for y in range(MATRIX_HEIGHT):
-        for x in range(MATRIX_WIDTH):
-            # ピクセルと中心点との距離を計算
-            distance = math.sqrt((x - x0) ** 2 + (y - y0) ** 2)
-            # 半径以下の距離なら点灯
-            if distance <= radius:
-                set_pixel(x, y, color)
+    x = 0
+    y = radius
+    d = 1 - radius
 
+    while x <= y:
+        for dx, dy in [
+            (x, y), (y, x), (-x, y), (-y, x),
+            (x, -y), (y, -x), (-x, -y), (-y, -x)
+        ]:
+            set_pixel(x0 + dx, y0 + dy, color)
+        if d < 0:
+            d += 2 * x + 3
+        else:
+            d += 2 * (x - y) + 5
+            y -= 1
+        x += 1
 
 def main():
     print("Press Ctrl-C to quit.")
     try:
         while True:
-            # 中心座標を設定（16x16マトリクスの中心）
-            center_x = MATRIX_WIDTH / 2 - 0.5
-            center_y = MATRIX_HEIGHT / 2 - 0.5
+            clear_display()
+
+            # ランダムな位置を生成
+            random_x = random.randint(0, MATRIX_WIDTH - 1)
+            random_y = random.randint(0, MATRIX_HEIGHT - 1)
 
             # アニメーションループ
-            for radius in range(1, 9):  # 1から8までの半径で円を描画
+            radius = 0
+            while radius < max(MATRIX_WIDTH, MATRIX_HEIGHT):
                 clear_display()  # 前のフレームをクリア
-                draw_circle(center_x, center_y, radius, Color(0, 0, 255))  # 青色の円
+                draw_circle(random_x, random_y, radius, Color(0, 255, 0))  # 緑色の円
                 strip.show()
-                time.sleep(0.5)
+                radius += 1
+                time.sleep(0.1)  # 拡大速度
 
-            time.sleep(1)  # アニメーション終了後の待機時間
+            clear_display()  # 円が消えるアニメーション
+            strip.show()
 
     except KeyboardInterrupt:
         print("\nQuitting...")
