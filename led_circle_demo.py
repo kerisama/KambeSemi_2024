@@ -4,6 +4,11 @@ import argparse
 import time
 import math
 
+# parser設定
+parser = argparse.ArgumentParser()
+parser.add_argument("-c","--color",action='store_true',help='clear the display on exit')
+args = parser.parse_args()
+
 # マトリクスLEDの設定
 MATRIX_WIDTH = 16
 MATRIX_HEIGHT = 16
@@ -29,7 +34,7 @@ strip = PixelStrip(
     )
 strip.begin()
 
-# LEd表示
+# LED表示 ジグザグ配線の修正
 def get_zigzag_index(x,y):
     if y % 2 == 0:      # 偶数行の場合
         return y * MATRIX_WIDTH + x
@@ -50,23 +55,25 @@ def draw_circle(x0, y0, radius, color):
             if math.sqrt((x - x0) ** 2 + (y - y0) ** 2) <= radius:
                 ColorWipe(x, y, color)
 
-# parser設定
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c","--color",action='store_true',help='clear the display on exit')
-    args = parser.parse_args()
+# メイン関数
+def main():
+    print("Press Ctrl-C to quit.")
 
-# 円の描画(一定時間ごとに広がる)
-try:
-    while True:
-        strip.clear()
-        for radius in range(1, 6):  # 1から5までの半径で円を描画
-            # 中心から円が広がっていく
-            draw_circle(3.5, 3.5, radius, Color(0, 0, 255))  # 青色の円
-            strip.show()
-            time.sleep(0.5)
-        time.sleep(1)  # アニメーション終了後の待機時間
+    # 円の描画(一定時間ごとに広がる)
+    try:
+        while True:
+            for radius in range(1, 6):  # 1から5までの半径で円を描画
+                # 中心から円が広がっていく
+                draw_circle(3.5, 3.5, radius, Color(0, 0, 255))  # 青色の円
+                strip.show()
+                time.sleep(0.5)
+            time.sleep(1)  # アニメーション終了後の待機時間
 
-# 終了処理
-except KeyboardInterrupt:
-    if args.color:
-        ColorWipe(strip,Color(0,0,0),10)
+    # 終了処理
+    except KeyboardInterrupt:
+        print("Quitting...")
+        if args.color:
+            ColorWipe(strip,Color(0,0,0),10)
+
+if __name__ == "__main__":
+    main()
