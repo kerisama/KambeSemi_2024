@@ -126,7 +126,7 @@ if __name__ == '__main__':
             ColorWipe(strip,Color(0,0,0),10)
 
             print('Expanding Circle')
-            draw_triangle(strip,[(3,3),(12,3),(7,10)],Color(200,0,0))
+            expanding_circle(strip, 8, Color(200, 0, 200), 100)
             strip.show()
             time.sleep(3)
 
