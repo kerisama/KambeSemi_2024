@@ -1,12 +1,7 @@
 import time
-from audioop import error
-
-from jedi.settings import dynamic_params
-from openpyxl.utils.units import dxa_to_cm
 from rpi_ws281x import PixelStrip,Color
 import argparse
-
-from win32cryptcon import szOID_X957
+import math
 
 # Matrix setting
 MATRIX_WIDTH = 16
@@ -21,6 +16,7 @@ LED_BRIGHTNESS = 10
 LED_INVERT = False
 LED_CHANNEL = 0
 
+# Define zigzag matrix
 def zigzag_matrix(x,y):
     if y % 2 == 0:  # Even rows
         return y * MATRIX_WIDTH + x
@@ -80,10 +76,12 @@ def draw_circle(strip,xc,yc,radius,color):
 
 # Main programs
 if __name__ == '__main__':
+    # parser setting
     parser =argparse.ArgumentParser()
     parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
     args = parser.parse_args()
 
+    # LED setting
     strip = PixelStrip(LED_COUNT,LED_PIN,LED_FREQ_HZ,LED_DMA,LED_INVERT,LED_BRIGHTNESS,LED_CHANNEL)
     strip.begin()
 

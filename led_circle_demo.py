@@ -1,10 +1,15 @@
 # ライブラリのロード (rpi-ws281x-pythonライブラリをインストールする必要がある)
-from rpi_ws281x import *
+from rpi_ws281x import PixelStrip,Color
+import argparse
 import time
 import math
 
+# マトリクスLEDの設定
+MATRIX_WIDTH = 16
+MATRIX_HEIGHT = 16
+
 # LEDディスプレイの設定
-LED_COUNT = 256         #LEDの数(16×16)
+LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT         #LEDの数(16×16)
 LED_PIN = 18            #GPIOピンの設定(ここではGPIO 18)
 LED_FREQ_HZ = 800000    #LED信号の周波数
 LED_DMA = 10            #DMAチャンネル
@@ -13,7 +18,7 @@ LED_INVERT = False      #信号の反転の有無
 LED_CHANNEL = 0         #PWMチャンネル
 
 # マトリクスオブジェクトの作成
-matrix = Adafruit_NeoPixel(
+strip = PixelStrip(
         LED_COUNT,
         LED_PIN,
         LED_FREQ_HZ,
@@ -22,36 +27,46 @@ matrix = Adafruit_NeoPixel(
         LED_INVERT,
         LED_CHANNEL
     )
-matrix.begin()
+strip.begin()
 
 # LEd表示
-def set_pixel(x, y, color):
-    index = y * 8 + x
-    matrix.setPixelColor(index, color)
+def get_zigzag_index(x,y):
+    if y % 2 == 0:      # 偶数行の場合
+        return y * MATRIX_WIDTH + x
+    else:               # 奇数桁は逆順に
+        return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
 
-# LEDのリセット
-def clear_matrix():
-    for i in range(LED_COUNT):
-        matrix.setPixelColor(i, Color(0, 0, 0))
-    matrix.show()
+# カラーワイプ
+def ColorWipe(strip,color,wait_ms=50):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, color)
+        strip.show()
+        time.sleep(wait_ms/1000.0)
 
 # 円の描画(一定時間ごとに広がる)
 def draw_circle(x0, y0, radius, color):
     for y in range(8):
         for x in range(8):
             if math.sqrt((x - x0) ** 2 + (y - y0) ** 2) <= radius:
-                set_pixel(x, y, color)
+                ColorWipe(x, y, color)
+
+# parser設定
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c","--color",action='store_true',help='clear the display on exit')
+    args = parser.parse_args()
 
 # 円の描画(一定時間ごとに広がる)
 try:
     while True:
+        strip.clear()
         for radius in range(1, 6):  # 1から5までの半径で円を描画
-            clear_matrix()
+            # 中心から円が広がっていく
             draw_circle(3.5, 3.5, radius, Color(0, 0, 255))  # 青色の円
-            matrix.show()
+            strip.show()
             time.sleep(0.5)
         time.sleep(1)  # アニメーション終了後の待機時間
 
 # 終了処理
 except KeyboardInterrupt:
-    clear_matrix()
+    if args.color:
+        ColorWipe(strip,Color(0,0,0),10)
