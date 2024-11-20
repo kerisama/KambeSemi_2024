@@ -4,8 +4,12 @@ import math
 #import RPi.GPIO as GPIO
 from rpi_ws281x import PixelStrip, Color
 
+# LEDマトリクスの大きさ
+MATRIX_WIDTH = 16
+MATRIX_HEIGHT = 16
+
 # LEDマトリクスの設定
-LED_COUNT = 256  # 16x16 = 256個のLED
+LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT  # 16x16 = 256個のLED
 LED_PIN = 18     # GPIOピン
 LED_FREQ_HZ = 800000
 LED_DMA = 10
@@ -15,22 +19,29 @@ LED_INVERT = 0
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
+# ジグザグ配列の修正
+def get_led_matrix(x,y):
+    if y % 2 == 0:  # Even rows
+        return y * MATRIX_WIDTH + x
+    else :      # Odd rows
+        return y * MATRIX_HEIGHT + (MATRIX_WIDTH - 1 - x)
+
 # 圧力値をもとに円の大きさと速度を変更する関数
 def pressure_to_params(pressure_value):
     # 圧力値から円の大きさを決定（圧力値が大きいほど大きな円に）
     radius = int((pressure_value / 980) * 5) + 1  # 最大半径5まで
     # 圧力値から生成速度を決定（圧力値が大きいほど速く）
-    speed = max(0.01, (980 - pressure_value) / 1000)  # 圧力が高いほど速くなる
+    speed = max(0.05, (980 - pressure_value) / 1000)  # 圧力が高いほど速くなる
     return radius, speed
 
 # 円を描画する関数
 def draw_circle(x, y, radius, color):
-    for i in range(LED_COUNT):
-        col = i % 16  # x座標
-        row = i // 16  # y座標
-        distance = math.sqrt((x - col) ** 2 + (y - row) ** 2)
-        if distance <= radius:
-            strip.setPixelColor(i, color)
+    for col in range(MATRIX_HEIGHT):
+        for row in range(MATRIX_WIDTH):
+            distance = math.sqrt((x - col) ** 2 + (y - row) ** 2)
+            if distance <= radius:
+                index = get_led_matrix(x, y)
+                strip.setPixelColor(index, color)
 
 # ランダムな圧力値を生成する関数（デモ用）
 def generate_random_pressure():
@@ -48,7 +59,7 @@ def generate_random_circle():
 # 円を目標座標に向けて移動する関数
 def move_circle(x, y, target_x, target_y, speed):
     step_size = 0.5  # ステップサイズ
-    while x != target_x or y != target_y:
+    while int(x) != target_x or int(y) != target_y:
         angle = math.atan2(target_y - y, target_x - x)
         x += step_size * math.cos(angle)
         y += step_size * math.sin(angle)
