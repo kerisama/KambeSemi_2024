@@ -1,7 +1,6 @@
 import time
 import random
 from rpi_ws281x import PixelStrip, Color
-import math
 
 # Matrix setting
 MATRIX_WIDTH = 16
@@ -29,28 +28,35 @@ def clear_matrix(strip):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
 
-# Move a point toward a target
-def move_point_toward_target(strip, x, y, target_x, target_y, color, speed=0.05):
-    while x != target_x or y != target_y:
-        # Draw current position
-        strip.setPixelColor(zigzag_matrix(x, y), color)
+# Update positions of multiple points simultaneously
+def update_positions(points, target_x, target_y, strip, speed=0.05):
+    while points:
+        # Update each point's position
+        for point in points[:]:
+            x, y, color = point
+            # Clear current position
+            strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
+
+            # Calculate direction to target
+            dx = target_x - x
+            dy = target_y - y
+            if dx == 0 and dy == 0:
+                # Point has reached the target
+                points.remove(point)
+                continue
+            elif abs(dx) > abs(dy):
+                x += 1 if dx > 0 else -1
+            else:
+                y += 1 if dy > 0 else -1
+
+            # Draw new position
+            strip.setPixelColor(zigzag_matrix(x, y), color)
+            # Update the point in the list
+            points[points.index(point)] = (x, y, color)
+
+        # Show updated positions
         strip.show()
         time.sleep(speed)
-
-        # Clear the current position
-        strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
-
-        # Calculate direction
-        dx = target_x - x
-        dy = target_y - y
-        if abs(dx) > abs(dy):
-            x += 1 if dx > 0 else -1
-        else:
-            y += 1 if dy > 0 else -1
-
-    # Draw the final position
-    strip.setPixelColor(zigzag_matrix(x, y), color)
-    strip.show()
 
 # Main program
 if __name__ == "__main__":
@@ -60,7 +66,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            # Randomly generate multiple starting points and their colors
+            # Generate multiple random starting points and their colors
             points = []
             for _ in range(10):  # Number of points
                 x = random.randint(0, MATRIX_WIDTH - 1)
@@ -72,9 +78,10 @@ if __name__ == "__main__":
             target_x = random.randint(0, MATRIX_WIDTH - 1)
             target_y = random.randint(0, MATRIX_HEIGHT - 1)
 
-            # Move each point toward the target
-            for x, y, color in points:
-                move_point_toward_target(strip, x, y, target_x, target_y, color)
+            print(f"Target position: ({target_x}, {target_y})")
+
+            # Move all points toward the target simultaneously
+            update_positions(points, target_x, target_y, strip, speed=0.05)
 
             # Pause before resetting
             time.sleep(2)
