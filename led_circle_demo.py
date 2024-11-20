@@ -174,8 +174,8 @@ if __name__ == '__main__':
             print('Colliding Circles')
             colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
 
-            print('Expanding Circle')
-            expanding_circle(strip, 8, Color(0, 255, 0), 100)
+            # print('Expanding Circle')
+            # expanding_circle(strip, 8, Color(0, 255, 0), 100)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
