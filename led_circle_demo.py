@@ -86,6 +86,72 @@ def expanding_circle(strip, max_radius, color, wait_ms=50):
         previous_pixels = current_pixels
         time.sleep(wait_ms / 1000.0)
 
+# Mix two colors (average the RGB values)
+def mix_colors(color1,color2):
+    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
+    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
+    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    return Color(r,g,b)
+
+# Circle collision
+def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
+    # ランダムに2つの円の中心を決定
+    xc1, yc1 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+    xc2, yc2 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+
+    # 描画済みピクセルを追跡する辞書 (ピクセル位置 -> 色)
+    pixels = {}
+
+    for radius in range(max_radius + 1):
+        # 描画するためのピクセルリストを保持
+        new_pixels = {}
+
+        # 1つ目の円を描画
+        for x, y in circle_pixels(xc1, yc1, radius):
+            pixel = zigzag_matrix(x, y)
+            if pixel in pixels:  # 他の円と衝突
+                mixed_color = mix_colors(pixels[pixel], color1)
+                strip.setPixelColor(pixel, mixed_color)
+                del pixels[pixel]  # 重なったピクセルは削除して消える
+            else:
+                strip.setPixelColor(pixel, color1)
+                new_pixels[pixel] = color1
+
+        # 2つ目の円を描画
+        for x, y in circle_pixels(xc2, yc2, radius):
+            pixel = zigzag_matrix(x, y)
+            if pixel in pixels:  # 他の円と衝突
+                mixed_color = mix_colors(pixels[pixel], color2)
+                strip.setPixelColor(pixel, mixed_color)
+                del pixels[pixel]  # 重なったピクセルは削除して消える
+            else:
+                strip.setPixelColor(pixel, color2)
+                new_pixels[pixel] = color2
+
+        # 現在のピクセル情報を更新
+        pixels.update(new_pixels)
+        strip.show()
+        time.sleep(wait_ms / 1000.0)
+
+# Generate circle pixels for a given center and radius
+def circle_pixels(xc, yc, radius):
+    x = 0
+    y = radius
+    d = 1 - radius
+    pixels = []
+
+    while x <= y:
+        for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
+            if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
+                pixels.append((xc + dx, yc + dy))
+        if d < 0:
+            d += 2 * x + 3
+        else:
+            d += 2 * (x - y) + 5
+            y -= 1
+        x += 1
+
+    return pixels
 
 # Main programs
 if __name__ == '__main__':
@@ -105,11 +171,14 @@ if __name__ == '__main__':
 
     try:
         while True:
-            expanding_circle(strip, 8, Color(200, 0, 200), 100)
-            strip.show()
-            time.sleep(3)
+            print('Colliding Circles')
+            colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
 
-            ColorWipe(strip,Color(0,0,0),10)
+            print('Expanding Circle')
+            expanding_circle(strip, 8, Color(0, 255, 0), 100)
+
+            ColorWipe(strip, Color(0, 0, 0), 10)
+
 
     except KeyboardInterrupt:
         if args.color:
