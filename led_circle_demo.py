@@ -81,11 +81,13 @@ def expanding_circle(strip,max_radius,color,wait_ms=100):
     yc = random.randint(0,MATRIX_HEIGHT - 1)
 
     for radius in range(max_radius + 1):
+        # Clear the previous circle
+        if radius > 0:
+            draw_circle(strip,xc,yc,radius - 1,Color(0,0,0))
+        # Draw the new circle
         draw_circle(strip,xc,yc,radius,color)
         strip.show()
         time.sleep(wait_ms/1000.0)
-        # Clear the current circle for next frame
-        ColorWipe(strip,Color(0,0,0),0)
 
 # Main programs
 if __name__ == '__main__':
@@ -99,33 +101,34 @@ if __name__ == '__main__':
     strip.begin()
 
     print('Press Ctrl+C to quit')
+    print('Expanding Circle')
     if not args.color:
         print('Use -c argument to clear LEDs on exit')
 
     try:
         while True:
-            print('Triangle')
-            strip.show()
-            # Red Triangle
-            draw_triangle(strip,[(3,3),(12,3),(7,10)],Color(200,0,0))
-            strip.show()
-            time.sleep(3)
-            ColorWipe(strip, Color(0, 0, 0), 10)
 
-            print('Circle')
-            # Green Circle
-            draw_circle(strip,8,8,5,Color(0,200,0))
-            strip.show()
-            time.sleep(3)
-            ColorWipe(strip, Color(0, 0, 0), 10)
+            # print('Triangle')
+            # strip.show()
+            # # Red Triangle
+            # draw_triangle(strip,[(3,3),(12,3),(7,10)],Color(200,0,0))
+            # strip.show()
+            # time.sleep(3)
+            # ColorWipe(strip, Color(0, 0, 0), 10)
+            #
+            # print('Circle')
+            # # Green Circle
+            # draw_circle(strip,8,8,5,Color(0,200,0))
+            # strip.show()
+            # time.sleep(3)
+            # ColorWipe(strip, Color(0, 0, 0), 10)
+            #
+            # print('Lines')
+            # draw_line(strip,0,0,15,15,Color(0,0,200))
+            # draw_line(strip,15,0,0,15,Color(200,200,0))
+            # time.sleep(3)
+            # ColorWipe(strip,Color(0,0,0),10)
 
-            print('Lines')
-            draw_line(strip,0,0,15,15,Color(0,0,200))
-            draw_line(strip,15,0,0,15,Color(200,200,0))
-            time.sleep(3)
-            ColorWipe(strip,Color(0,0,0),10)
-
-            print('Expanding Circle')
             expanding_circle(strip, 8, Color(200, 0, 200), 100)
             strip.show()
             time.sleep(3)
