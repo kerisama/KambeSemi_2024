@@ -1,124 +1,108 @@
 import time
 import random
-from rpi_ws281x import PixelStrip,Color
-import argparse
-import math
+from rpi_ws281x import PixelStrip, Color
 
-# 16x16マトリクスの設定
+# Matrix setting
 MATRIX_WIDTH = 16
 MATRIX_HEIGHT = 16
 
-# LEDストリップ設定
-LED_COUNT = MATRIX_HEIGHT * MATRIX_WIDTH      # LEDの総数（16x16マトリクス）
-LED_PIN = 18          # GPIOピン（PWM使用）
-LED_FREQ_HZ = 800000  # LED信号周波数（通常800kHz）
-LED_DMA = 10          # DMAチャンネル（通常10）
-LED_BRIGHTNESS = 255  # 明るさ（0-255）
-LED_INVERT = False    # 信号を反転するかどうか
-LED_CHANNEL = 0       # チャンネル（通常0）
+# LED Setting
+LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
+LED_PIN = 18
+LED_FREQ_HZ = 800000
+LED_DMA = 10
+LED_BRIGHTNESS = 10
+LED_INVERT = False
+LED_CHANNEL = 0
 
-# LED初期化
-strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-strip.begin()
-
-# 圧力値のしきい値 (pressure_low)
-pressure_low = 980
-
-# ジグザグ配線のインデックス計算
-def get_zigzag_index(x, y):
-    if y % 2 == 0:  # 偶数行はそのまま
+# Define zigzag matrix
+def zigzag_matrix(x, y):
+    if y % 2 == 0:  # Even rows
         return y * MATRIX_WIDTH + x
-    else:           # 奇数行は逆順
-        return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
+    else:  # Odd rows
+        return y * MATRIX_HEIGHT + (MATRIX_WIDTH - 1 - x)
 
-# カラーワイプ
-def ColorWipe(strip,color,wait_ms=50):
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i,color)
-        strip.show()
-        time.sleep(wait_ms/1000.0)
-
-# ランダムな圧力値を生成する関数 (デモ用)
-def generate_random_pressure():
-    return random.randint(10,100)
-
-# 圧力値をもとに円の大きさと速度を変更する関数
-def pressure_to_params(pressure_value):
-    # 圧力値から円の大きさを決定 (圧力値が大きいほど大きくなる)
-    radius = int((pressure_value/pressure_low) * 5) + 1      # 最大半径5
-    # 圧力値から生成速度を決定 (圧力値が大きいと速くなる)
-    speed = max(0.01,(pressure_low - pressure_value)/1000)   # 圧力が高いと速く
-    return radius,speed
-
-# 円を描画する関数
-def draw_circle(x,y,radius,color):
+# Clear the matrix
+def clear_matrix(strip):
     for i in range(LED_COUNT):
-        col = i % MATRIX_HEIGHT
-        row = i // MATRIX_WIDTH
-        distance = math.sqrt((x - col) ** 2 + (y - row) ** 2)
-        if distance <= radius:
-            # ジグザグ配線の修正
-            index = get_zigzag_index(col,row)
-            strip.setPixelColor(index,color)
-    #ColorWipe(strip.color)
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
 
-# ランダムな円を生成する関数
-def generate_random_circle():
-    pressure_value = generate_random_pressure()  # 圧力値を取得
-    radius, speed = pressure_to_params(pressure_value)  # 圧力値から半径と速度を取得
-    x = random.randint(0, 15)  # 0〜15の範囲でランダムなx座標
-    y = random.randint(0, 15)  # 0〜15の範囲でランダムなy座標
-    color = Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))  # ランダムな色
-    return x, y, radius, color, speed
+# Update positions of multiple points simultaneously
+def update_positions(points, target_x, target_y, strip, speed=0.05):
+    while points:
+        for point in points[:]:
+            x, y, color = point
+            # Clear current position
+            strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
 
-# 円を目標座標に向けて移動する関数　(draw_circleを更新するタイプ)
-def move_circle(x, y, target_x, target_y, speed , radius,color):
-    while x != target_x or y != target_y:
-        # 目標に向かって1ステップずつ進む
-        if x < target_x:
-            x += 1
-        elif x > target_x:
-            x -= 1
-        if y < target_y:
-            y += 1
-        elif y > target_y:
-            y -= 1
+            # Calculate direction to target
+            dx = target_x - x
+            dy = target_y - y
+            if dx == 0 and dy == 0:
+                points.remove(point)
+                continue
+            elif abs(dx) > abs(dy):
+                x += 1 if dx > 0 else -1
+            else:
+                y += 1 if dy > 0 else -1
 
-        # 前回の位置を消す
-        draw_circle(x,y,radius,Color(0,0,0))
-        # 新しい位置に円を描画
-        draw_circle(x,y,radius,color)
-        # 少し待つ
+            # Draw new position
+            strip.setPixelColor(zigzag_matrix(x, y), color)
+            points[points.index(point)] = (x, y, color)
+
+        # Show updated positions
+        strip.show()
         time.sleep(speed)
 
-# メイン処理
-def main():
-    # parser設定
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c","--color",action='store_true',help='clear the display on exit')
-    args = parser.parse_args()
+# Generate dynamic values to adjust point count and speed
+def get_dynamic_parameters():
+    # Example: Use a random value to simulate dynamic input
+    dynamic_value = random.randint(10, 1000)
 
-    print("Press Ctrl+C to quit")
+    # Adjust point count (e.g., based on the dynamic value)
+    point_count = max(5, min(20, dynamic_value // 50))  # Between 5 and 20 points
+
+    # Adjust speed (e.g., inverse of the dynamic value)
+    speed = max(0.02, min(0.1, 1.0 / (dynamic_value / 100.0)))  # Between 0.02 and 0.1 seconds
+
+    return point_count, speed, dynamic_value
+
+# Main program
+if __name__ == "__main__":
+    # LED setting
+    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+    strip.begin()
 
     try:
         while True:
-            # ランダムに円を生成する
-            x,y,radius,color,speed = generate_random_circle()
-            # 円の表示
-            draw_circle(x,y,radius,color)
+            # Get dynamic parameters
+            point_count, speed, dynamic_value = get_dynamic_parameters()
+            print(f"Dynamic value: {dynamic_value}, Points: {point_count}, Speed: {speed}")
 
-            # 目標座標の設定
-            target_x = random.randint(0,15)
-            target_y = random.randint(0,15)
+            # Generate random starting points and their colors
+            points = []
+            for _ in range(point_count):  # Adjust number of points dynamically
+                x = random.randint(0, MATRIX_WIDTH - 1)
+                y = random.randint(0, MATRIX_HEIGHT - 1)
+                color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                points.append((x, y, color))
 
-            # 円を目標座標に移動
-            move_circle(x,y,target_x,target_y,speed)
+            # Choose a random target point
+            target_x = random.randint(0, MATRIX_WIDTH - 1)
+            target_y = random.randint(0, MATRIX_HEIGHT - 1)
 
-            time.sleep(1)
+            print(f"Target position: ({target_x}, {target_y})")
+
+            # Move all points toward the target simultaneously
+            update_positions(points, target_x, target_y, strip, speed)
+
+            # Pause before resetting
+            time.sleep(2)
+
+            # Clear the matrix
+            clear_matrix(strip)
 
     except KeyboardInterrupt:
-        if args.color:
-            ColorWipe(strip,Color(0,0,0),10)
-
-if __name__ == "__main__":
-    main()
+        # Clear on exit
+        clear_matrix(strip)
