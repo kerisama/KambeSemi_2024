@@ -60,7 +60,7 @@ def draw_circle(x,y,radius,color):
             # ジグザグ配線の修正
             index = get_zigzag_index(col,row)
             strip.setPixelColor(index,color)
-    ColorWipe(strip.color)
+    #ColorWipe(strip.color)
 
 # ランダムな円を生成する関数
 def generate_random_circle():
@@ -72,15 +72,24 @@ def generate_random_circle():
     return x, y, radius, color, speed
 
 # 円を目標座標に向けて移動する関数　(draw_circleを更新するタイプ)
-def move_circle(x, y, target_x, target_y, speed):
-    step_size = 0.5  # ステップサイズ
+def move_circle(x, y, target_x, target_y, speed , radius,color):
     while x != target_x or y != target_y:
-        angle = math.atan2(target_y - y, target_x - x)
-        x += step_size * math.cos(angle)
-        y += step_size * math.sin(angle)
-        draw_circle(int(x), int(y), 2, Color(0, 0, 0))  # 以前の位置を消去
-        time.sleep(speed)  # 速度調整
-    draw_circle(int(x), int(y), 2, Color(0, 0, 0))  # 最終位置を消去
+        # 目標に向かって1ステップずつ進む
+        if x < target_x:
+            x += 1
+        elif x > target_x:
+            x -= 1
+        if y < target_y:
+            y += 1
+        elif y > target_y:
+            y -= 1
+
+        # 前回の位置を消す
+        draw_circle(x,y,radius,Color(0,0,0))
+        # 新しい位置に円を描画
+        draw_circle(x,y,radius,color)
+        # 少し待つ
+        time.sleep(speed)
 
 # メイン処理
 def main():
