@@ -31,6 +31,11 @@ def ColorWipe(strip,color,wait_ms=50):
         strip.show()
         time.sleep(wait_ms/1000.0)
 
+def pixel_clear(strip,pixels):
+    for pixel in pixels:
+        strip.setPixelColor(pixel,Color(0,0,0))
+    strip.show()
+
 # Draw line
 def draw_line(strip,x0,y0,x1,y1,color):
     dx = abs(x1 - x0)
@@ -76,18 +81,38 @@ def draw_circle(strip,xc,yc,radius,color):
         x += 1
 
 # Expand circle
-def expanding_circle(strip,max_radius,color,wait_ms=100):
-    xc = random.randint(0,MATRIX_WIDTH - 1)
-    yc = random.randint(0,MATRIX_HEIGHT - 1)
+# Expanding circle with tracked pixels for faster clearing
+def expanding_circle(strip, max_radius, color, wait_ms=50):
+    xc = random.randint(0, MATRIX_WIDTH - 1)
+    yc = random.randint(0, MATRIX_HEIGHT - 1)
+    previous_pixels = []
 
     for radius in range(max_radius + 1):
-        # Clear the previous circle
-        if radius > 0:
-            draw_circle(strip,xc,yc,radius - 1,Color(0,0,0))
-        # Draw the new circle
-        draw_circle(strip,xc,yc,radius,color)
+        # Clear previous pixels
+        if previous_pixels:
+            pixel_clear(strip, previous_pixels)
+
+        # Draw new circle and keep track of pixels
+        current_pixels = []
+        x = 0
+        y = radius
+        d = 1 - radius
+        while x <= y:
+            for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
+                if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
+                    pixel = zigzag_matrix(xc + dx, yc + dy)
+                    strip.setPixelColor(pixel, color)
+                    current_pixels.append(pixel)
+            if d < 0:
+                d += 2 * x + 3
+            else:
+                d += 2 * (x - y) + 5
+                y -= 1
+            x += 1
         strip.show()
-        time.sleep(wait_ms/1000.0)
+        previous_pixels = current_pixels
+        time.sleep(wait_ms / 1000.0)
+
 
 # Main programs
 if __name__ == '__main__':
@@ -107,28 +132,6 @@ if __name__ == '__main__':
 
     try:
         while True:
-
-            # print('Triangle')
-            # strip.show()
-            # # Red Triangle
-            # draw_triangle(strip,[(3,3),(12,3),(7,10)],Color(200,0,0))
-            # strip.show()
-            # time.sleep(3)
-            # ColorWipe(strip, Color(0, 0, 0), 10)
-            #
-            # print('Circle')
-            # # Green Circle
-            # draw_circle(strip,8,8,5,Color(0,200,0))
-            # strip.show()
-            # time.sleep(3)
-            # ColorWipe(strip, Color(0, 0, 0), 10)
-            #
-            # print('Lines')
-            # draw_line(strip,0,0,15,15,Color(0,0,200))
-            # draw_line(strip,15,0,0,15,Color(200,200,0))
-            # time.sleep(3)
-            # ColorWipe(strip,Color(0,0,0),10)
-
             expanding_circle(strip, 8, Color(200, 0, 200), 100)
             strip.show()
             time.sleep(3)
