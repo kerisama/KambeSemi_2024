@@ -156,7 +156,7 @@ def circle_pixels(xc, yc, radius):
 # Main programs
 if __name__ == '__main__':
     # parser setting
-    parser =argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
     args = parser.parse_args()
 
@@ -171,8 +171,8 @@ if __name__ == '__main__':
 
     try:
         while True:
-            # print('Colliding Circles')
-            # colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
+            print('Colliding Circles')
+            colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
 
             print('Expanding Circle')
             expanding_circle(strip, 8, Color(0, 255, 0), 100)

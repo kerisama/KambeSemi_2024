@@ -55,18 +55,18 @@ def update_positions(points, target_x, target_y, strip, speed=0.05):
         strip.show()
         time.sleep(speed)
 
-# Generate dynamic values to adjust point count and speed
-def get_dynamic_parameters():
+# get pressure values to adjust point count and speed
+def pressure_parameters():
     # Example: Use a random value to simulate dynamic input
-    dynamic_value = random.randint(10, 1000)
+    pressure_value = random.randint(10, 1000)
 
     # Adjust point count (e.g., based on the dynamic value)
-    point_count = max(5, min(20, dynamic_value // 50))  # Between 5 and 20 points
+    point_count = max(5, min(20, pressure_value // 50))  # Between 5 and 20 points
 
     # Adjust speed (e.g., inverse of the dynamic value)
-    speed = max(0.02, min(0.1, 1.0 / (dynamic_value / 100.0)))  # Between 0.02 and 0.1 seconds
+    speed = max(0.02, min(0.1, 1.0 / (pressure_value / 100.0)))  # Between 0.02 and 0.1 seconds
 
-    return point_count, speed, dynamic_value
+    return point_count, speed, pressure_value
 
 # Main program
 if __name__ == "__main__":
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     try:
         while True:
             # Get dynamic parameters
-            point_count, speed, dynamic_value = get_dynamic_parameters()
+            point_count, speed, dynamic_value = pressure_parameters()
             print(f"Dynamic value: {dynamic_value}, Points: {point_count}, Speed: {speed}")
 
             # Generate random starting points and their colors
