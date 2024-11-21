@@ -140,21 +140,27 @@ def circle_pixels(x_circle, y_circle, radius):
 
     return pixels
 
-def circle_generate():
-    x_center,y_center = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+# Generate a unique circle
+def circle_generate(existing_circles):
+    while True:
+        x_center, y_center = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+        if not any(
+            math.hypot(x_center - circle[0], y_center - circle[1]) <= 0
+            for circle in existing_circles
+        ):
+            break
     color = Color(random.randint(0, 200), random.randint(0, 200), random.randint(0, 200))
-    circles.append([x_center,y_center,0,color])
     return x_center, y_center, color
 
 # Main programs
 if __name__ == '__main__':
     # parser setting
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
+    parser.add_argument('-c', '--color', action='store_true', help='clear the display on exit')
     args = parser.parse_args()
 
     # LED setting
-    strip = PixelStrip(LED_COUNT,LED_PIN,LED_FREQ_HZ,LED_DMA,LED_INVERT,LED_BRIGHTNESS,LED_CHANNEL)
+    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
     print('Press Ctrl+C to quit')
@@ -164,28 +170,21 @@ if __name__ == '__main__':
 
     try:
         while True:
-            x_center, y_center, color = circle_generate()
-            circles.append([x_center,y_center,0,color])
+            x_center, y_center, color = circle_generate(circles)
+            circles.append([x_center, y_center, 0, color])
 
-            # Expanding Circle Test
-            # print('Expanding Circle')
-            # expanding_circle(strip, 8, color, x_center, y_center, 100)
-
-            # expanding_circle(strip, 8, color, x_center, y_center, 100)
             for circle in circles:
-                expanding_circle(strip, 8, color, x_center, y_center, 100)
+                expanding_circle(strip, 8, circle[3], circle[0], circle[1], 100)
                 for other_circle in circles:
-                    if circle != other_circle and detect_collision(circle,other_circle):
-                        handle_collision(strip,circle,other_circle)
+                    if circle != other_circle and detect_collision(circle, other_circle):
+                        handle_collision(strip, circle, other_circle)
                         circles.remove(circle)
                         circles.remove(other_circle)
                         break
 
-
             strip.show()
             time.sleep(0.1)
 
-
     except KeyboardInterrupt:
         if args.color:
-            ColorWipe(strip,Color(0,0,0),10)
+            ColorWipe(strip, Color(0, 0, 0), 10)
