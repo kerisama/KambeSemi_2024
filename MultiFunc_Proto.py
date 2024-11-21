@@ -36,7 +36,7 @@ def pixel_clear(strip,pixels):
         strip.setPixelColor(pixel,Color(0,0,0))
     strip.show()
 
-def draw_circle(strip,xc,yc,radius,color):
+def draw_circle(strip,x_circle,y_circle,radius,color):
     x = 0
     y = radius
     d = 1 - radius
@@ -44,8 +44,8 @@ def draw_circle(strip,xc,yc,radius,color):
     while x <= y:
         # Draw points for each octant
         for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-            if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
-                strip.setPixelColor(zigzag_matrix(xc + dx, yc + dy), color)
+            if 0 <= x_circle + dx < MATRIX_WIDTH and 0 <= y_circle + dy < MATRIX_HEIGHT:
+                strip.setPixelColor(zigzag_matrix(x_circle + dx, y_circle + dy), color)
         if d < 0:
             d += 2 * x + 3
         else:
@@ -91,11 +91,37 @@ def mix_colors(color1,color2):
     b = (color1 & 0xFF + color2 & 0xFF) // 2
     return Color(r,g,b)
 
+# Detecting collision
+def detect_collision(circle1,circle2):
+    dx = circle1[0] - circle2[0]
+    dy = circle1[1] - circle2[1]
+    distance_squared = dx**2 + dy**2
+    return distance_squared <= (circle1[2] + circle2[2]) ** 2
+
+# Handling collision
+def handle_collision(strip, circle1, circle2):
+    pixels1 = circle_pixels(circle1[0],circle1[1],circle1[2])
+    pixels2 = circle_pixels(circle2[0],circle2[1],circle2[2])
+
+    overlapping_pixels = set(pixels1) & set(pixels2)
+
+    for x, y in overlapping_pixels:
+        pixel_index = zigzag_matrix(x,y)
+        mix_color = mix_colors(pixels1[pixel_index],pixels2[pixel_index])
+        strip.setPixelColor(pixel_index, mix_color)
+    strip.show()
+    time.sleep(0.5)
+
+    for x,y in overlapping_pixels:
+        pixel_index = zigzag_matrix(x,y)
+        strip.setPixelColor(pixel_index, Color(0,0,0))
+    strip.show()
+
 # Circles
 circles = []
 
 # Generate circle pixels for a given center and radius
-def circle_pixels(xc, yc, radius):
+def circle_pixels(x_circle, y_circle, radius):
     x = 0
     y = radius
     d = 1 - radius
@@ -103,8 +129,8 @@ def circle_pixels(xc, yc, radius):
 
     while x <= y:
         for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-            if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
-                pixels.append((xc + dx, yc + dy))
+            if 0 <= x_circle + dx < MATRIX_WIDTH and 0 <= y_circle + dy < MATRIX_HEIGHT:
+                pixels.append((x_circle + dx, y_circle + dy))
         if d < 0:
             d += 2 * x + 3
         else:
@@ -139,12 +165,26 @@ if __name__ == '__main__':
     try:
         while True:
             x_center, y_center, color = circle_generate()
+            circles.append([x_center,y_center,0,color])
 
             # Expanding Circle Test
-            print('Expanding Circle')
-            expanding_circle(strip, 8, color, x_center, y_center, 100)
+            # print('Expanding Circle')
+            # expanding_circle(strip, 8, color, x_center, y_center, 100)
 
-            ColorWipe(strip, Color(0, 0, 0), 10)
+            for circle in circles:
+                circle[2] += 1
+                draw_circle(strip,circle[0],circle[1],circle[2],circle[3])
+
+                for other_circle in circles:
+                    if circle != other_circle and detect_collision(circle,other_circle):
+                        handle_collision(strip,circle,other_circle)
+                        circles.remove(circle)
+                        circles.remove(other_circle)
+                        break
+
+
+            strip.show()
+            time.sleep(0.1)
 
 
     except KeyboardInterrupt:
