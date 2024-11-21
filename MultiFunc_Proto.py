@@ -69,9 +69,11 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
             strip.setPixelColor(pixel, color)
         strip.show()
         pixels = new_pixels
-        circles.append(new_pixels)  # Add to active circles
         radius += 1
         time.sleep(wait_ms / 1000.0)
+
+    # Add the final circle to the list of active circles
+    circles.append(pixels)
 
 # Check for collisions
 def check_collisions(circles, new_pixels):
@@ -84,9 +86,9 @@ def check_collisions(circles, new_pixels):
 
 # Mix two colors
 def mix_colors(color1, color2):
-    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
-    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
-    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    r = ((color1 >> 16 & 0xFF) + (color2 >> 16 & 0xFF)) // 2
+    g = ((color1 >> 8 & 0xFF) + (color2 >> 8 & 0xFF)) // 2
+    b = ((color1 & 0xFF) + (color2 & 0xFF)) // 2
     return Color(r, g, b)
 
 # Main programs
@@ -108,10 +110,11 @@ if __name__ == '__main__':
     try:
         circles = []  # List to store active circles
         while True:
-            if len(circles) < 4:  # Allow up to 4 circles
-                expanding_circle(strip, circles, 8, Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 100)
-            else:
-                time.sleep(0.1)  # Wait if the maximum number of circles is reached
+            if len(circles) >= 4:  # Clear the oldest circle if more than 4 exist
+                oldest_circle = circles.pop(0)
+                pixel_clear(strip, oldest_circle)
+            # Draw a new circle
+            expanding_circle(strip, circles, 8, Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), 100)
     except KeyboardInterrupt:
         if args.color:
             pixel_clear(strip, range(LED_COUNT))
