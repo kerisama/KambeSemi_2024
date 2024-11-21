@@ -172,8 +172,7 @@ if __name__ == '__main__':
             # expanding_circle(strip, 8, color, x_center, y_center, 100)
 
             for circle in circles:
-                circle[2] += 1
-                draw_circle(strip,circle[0],circle[1],circle[2],circle[3])
+                draw_circle(strip,x_center,y_center,color)
 
                 for other_circle in circles:
                     if circle != other_circle and detect_collision(circle,other_circle):
