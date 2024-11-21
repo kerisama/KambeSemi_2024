@@ -88,9 +88,9 @@ def expanding_circle(strip, max_radius, color, wait_ms=50):
 
 # Mix two colors (average the RGB values)
 def mix_colors(color1,color2):
-    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
-    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
-    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    r = 200
+    g = 200
+    b = 200
     return Color(r,g,b)
 
 # Circle collision
@@ -174,8 +174,8 @@ if __name__ == '__main__':
             print('Colliding Circles')
             colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
 
-            print('Expanding Circle')
-            expanding_circle(strip, 8, Color(0, 255, 0), 100)
+            # print('Expanding Circle')
+            # expanding_circle(strip, 8, Color(0, 255, 0), 100)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
