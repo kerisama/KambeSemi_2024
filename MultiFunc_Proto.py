@@ -55,9 +55,7 @@ def draw_circle(strip,xc,yc,radius,color):
 
 # Expand circle
 # Expanding circle with tracked pixels for faster clearing
-def expanding_circle(strip, max_radius, color, wait_ms=50):
-    xc = random.randint(0, MATRIX_WIDTH - 1)
-    yc = random.randint(0, MATRIX_HEIGHT - 1)
+def expanding_circle(strip, max_radius, color, x_center, y_center, wait_ms=50):
     previous_pixels = []
 
     for radius in range(max_radius + 1):
@@ -72,8 +70,8 @@ def expanding_circle(strip, max_radius, color, wait_ms=50):
         d = 1 - radius
         while x <= y:
             for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-                if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
-                    pixel = zigzag_matrix(xc + dx, yc + dy)
+                if 0 <= x_center + dx < MATRIX_WIDTH and 0 <= y_center + dy < MATRIX_HEIGHT:
+                    pixel = zigzag_matrix(x_center + dx, y_center + dy)
                     strip.setPixelColor(pixel, color)
                     current_pixels.append(pixel)
             if d < 0:
@@ -93,50 +91,8 @@ def mix_colors(color1,color2):
     b = (color1 & 0xFF + color2 & 0xFF) // 2
     return Color(r,g,b)
 
-# Circle collision
-def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
-    # ランダムに2つの円の中心を決定
-    xc1, yc1 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-    xc2, yc2 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-
-    # 描画済みピクセルを追跡する辞書 (ピクセル位置 -> 色)
-    pixels = {}
-    previous_pixels = []
-
-    for radius in range(max_radius + 1):
-        # 描画するためのピクセルリストを保持
-        new_pixels = {}
-
-        if previous_pixels:
-            pixel_clear(strip,previous_pixels)
-
-        # 1つ目の円を描画
-        for x, y in circle_pixels(xc1, yc1, radius):
-            pixel = zigzag_matrix(x, y)
-            if pixel in pixels:  # 他の円と衝突
-                mixed_color = mix_colors(pixels[pixel], color1)
-                strip.setPixelColor(pixel, mixed_color)
-                del pixels[pixel]  # 重なったピクセルは変色して消える
-            else:
-                strip.setPixelColor(pixel, color1)
-                new_pixels[pixel] = color1
-
-        # 2つ目の円を描画
-        for x, y in circle_pixels(xc2, yc2, radius):
-            pixel = zigzag_matrix(x, y)
-            if pixel in pixels:  # 他の円と衝突
-                mixed_color = mix_colors(pixels[pixel], color2)
-                strip.setPixelColor(pixel, mixed_color)
-                del pixels[pixel]  # 重なったピクセルは変色して消える
-            else:
-                strip.setPixelColor(pixel, color2)
-                new_pixels[pixel] = color2
-
-        # 現在のピクセル情報を更新
-        pixels.update(new_pixels)
-        strip.show()
-        previous_pixels = new_pixels
-        time.sleep(wait_ms / 1000.0)
+# Circles
+circles = []
 
 # Generate circle pixels for a given center and radius
 def circle_pixels(xc, yc, radius):
@@ -158,9 +114,11 @@ def circle_pixels(xc, yc, radius):
 
     return pixels
 
-def color_generate():
-    color = Color(random.randint(0,200),random.randint(0,200),random.randint(0,200))
-    return color
+def circle_generate():
+    x_center,y_center = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+    color = Color(random.randint(0, 200), random.randint(0, 200), random.randint(0, 200))
+    circles.append([x_center,y_center,0,color])
+    return x_center, y_center, color
 
 # Main programs
 if __name__ == '__main__':
@@ -180,15 +138,11 @@ if __name__ == '__main__':
 
     try:
         while True:
-            color1 = color_generate()
-            color2 = color_generate()
-            # Circle Collision
-            print('Colliding Circles')
-            colliding_circles(strip, 8, color1, color2, wait_ms=50)
+            x_center, y_center, color = circle_generate()
 
             # Expanding Circle Test
-            # print('Expanding Circle')
-            # expanding_circle(strip, 8, Color(0, 255, 0), 100)
+            print('Expanding Circle')
+            expanding_circle(strip, 8, Color(0, 255, 0), x_center, y_center, 100)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
