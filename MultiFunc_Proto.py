@@ -1,40 +1,41 @@
-import time
-from rpi_ws281x import PixelStrip,Color
-import argparse
-import math
 import random
+import time
+import argparse
+from rpi_ws281x import PixelStrip, Color
 
-# Matrix setting
-MATRIX_WIDTH = 16
-MATRIX_HEIGHT = 16
+# Constants for LED matrix dimensions
+MATRIX_WIDTH = 16  # Adjust based on your setup
+MATRIX_HEIGHT = 16  # Adjust based on your setup
 
-# LED Setting
-LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
+# LED setting
+LED_COUNT = 256  # Adjust based on your setup
 LED_PIN = 18
 LED_FREQ_HZ = 800000
-LED_DMA =10
-LED_BRIGHTNESS = 10
+LED_DMA = 10
 LED_INVERT = False
+LED_BRIGHTNESS = 255
 LED_CHANNEL = 0
 
-# Define zigzag matrix
-def zigzag_matrix(x,y):
-    if y % 2 == 0:  # Even rows
+strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+strip.begin()
+
+# Helper functions
+def zigzag_matrix(x, y):
+    if y % 2 == 0:
         return y * MATRIX_WIDTH + x
-    else :      # Odd rows
-        return y * MATRIX_HEIGHT + (MATRIX_WIDTH - 1 - x)
+    else:
+        return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
 
-# Color Wiping
-def ColorWipe(strip,color,wait_ms=50):
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i,color)
-        strip.show()
-        time.sleep(wait_ms/1000.0)
-
-def pixel_clear(strip,pixels):
+def pixel_clear(strip, pixels):
     for pixel in pixels:
-        strip.setPixelColor(pixel,Color(0,0,0))
+        strip.setPixelColor(pixel, Color(0, 0, 0))
     strip.show()
+
+def mix_colors(color1, color2):
+    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
+    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
+    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    return Color(r, g, b)
 
 # Expanding circles with collisions
 def expanding_circles(strip, max_radius, colors, num_circles, wait_ms=50):
@@ -91,38 +92,25 @@ def expanding_circles(strip, max_radius, colors, num_circles, wait_ms=50):
         previous_pixels = current_pixels
         time.sleep(wait_ms / 1000.0)
 
-# Mix two colors (average the RGB values)
-def mix_colors(color1, color2):
-    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
-    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
-    b = (color1 & 0xFF + color2 & 0xFF) // 2
-    return Color(r, g, b)
-
-# Main programs
+# Main program
 if __name__ == '__main__':
-    # parser setting
+    # Parser setting
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
+    parser.add_argument('-c', '--clear', action='store_true', help='clear the display on exit')
     args = parser.parse_args()
 
-    # LED setting
-    strip = PixelStrip(LED_COUNT,LED_PIN,LED_FREQ_HZ,LED_DMA,LED_INVERT,LED_BRIGHTNESS,LED_CHANNEL)
-    strip.begin()
-
     print('Press Ctrl+C to quit')
-    print('Expanding Circle')
-    if not args.color:
+    print('Expanding Circles with Collision Detection')
+    if not args.clear:
         print('Use -c argument to clear LEDs on exit')
 
     try:
         while True:
-            print('Expanding Circle')
-            colors = [Color(255,0,0),Color(0,255,0),Color(0,0,255)]
-            expanding_circles(strip, 8, Color(0, 255, 0), 100)
-
-            ColorWipe(strip, Color(0, 0, 0), 10)
-
+            colors = [Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255)]
+            expanding_circles(strip, 8, colors, 3, 100)
+            # Clear the LEDs after each cycle
+            pixel_clear(strip, range(LED_COUNT))
 
     except KeyboardInterrupt:
-        if args.color:
-            ColorWipe(strip,Color(0,0,0),10)
+        if args.clear:
+            pixel_clear(strip, range(LED_COUNT))
