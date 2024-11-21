@@ -88,9 +88,9 @@ def expanding_circle(strip, max_radius, color, wait_ms=50):
 
 # Mix two colors (average the RGB values)
 def mix_colors(color1,color2):
-    r = 200
-    g = 200
-    b = 200
+    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
+    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
+    b = (color1 & 0xFF + color2 & 0xFF) // 2
     return Color(r,g,b)
 
 # Circle collision
@@ -116,7 +116,7 @@ def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
             if pixel in pixels:  # 他の円と衝突
                 mixed_color = mix_colors(pixels[pixel], color1)
                 strip.setPixelColor(pixel, mixed_color)
-                del pixels[pixel]  # 重なったピクセルは削除して消える
+                del pixels[pixel]  # 重なったピクセルは変色して消える
             else:
                 strip.setPixelColor(pixel, color1)
                 new_pixels[pixel] = color1
@@ -127,7 +127,7 @@ def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
             if pixel in pixels:  # 他の円と衝突
                 mixed_color = mix_colors(pixels[pixel], color2)
                 strip.setPixelColor(pixel, mixed_color)
-                del pixels[pixel]  # 重なったピクセルは削除して消える
+                del pixels[pixel]  # 重なったピクセルは変色して消える
             else:
                 strip.setPixelColor(pixel, color2)
                 new_pixels[pixel] = color2
@@ -158,6 +158,10 @@ def circle_pixels(xc, yc, radius):
 
     return pixels
 
+def color_generate():
+    color = Color(random.randint(0,200),random.randint(0,200),random.randint(0,200))
+    return color
+
 # Main programs
 if __name__ == '__main__':
     # parser setting
@@ -176,9 +180,12 @@ if __name__ == '__main__':
 
     try:
         while True:
+            color1,color2 = color_generate()
+            # Circle Collision
             print('Colliding Circles')
-            colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
+            colliding_circles(strip, 8, color1, color2, wait_ms=50)
 
+            # Expanding Circle Test
             # print('Expanding Circle')
             # expanding_circle(strip, 8, Color(0, 255, 0), 100)
 
