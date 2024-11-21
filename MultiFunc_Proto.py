@@ -36,7 +36,7 @@ def pixel_clear(strip,pixels):
         strip.setPixelColor(pixel,Color(0,0,0))
     strip.show()
 
-def draw_circle(strip,x_circle,y_circle,radius,color):
+def draw_circle(strip,xc,yc,radius,color):
     x = 0
     y = radius
     d = 1 - radius
@@ -44,8 +44,8 @@ def draw_circle(strip,x_circle,y_circle,radius,color):
     while x <= y:
         # Draw points for each octant
         for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-            if 0 <= x_circle + dx < MATRIX_WIDTH and 0 <= y_circle + dy < MATRIX_HEIGHT:
-                strip.setPixelColor(zigzag_matrix(x_circle + dx, y_circle + dy), color)
+            if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
+                strip.setPixelColor(zigzag_matrix(xc + dx, yc + dy), color)
         if d < 0:
             d += 2 * x + 3
         else:
@@ -55,7 +55,9 @@ def draw_circle(strip,x_circle,y_circle,radius,color):
 
 # Expand circle
 # Expanding circle with tracked pixels for faster clearing
-def expanding_circle(strip, max_radius, color, x_center, y_center, wait_ms=50):
+def expanding_circle(strip, max_radius, color, wait_ms=50):
+    xc = random.randint(0, MATRIX_WIDTH - 1)
+    yc = random.randint(0, MATRIX_HEIGHT - 1)
     previous_pixels = []
 
     for radius in range(max_radius + 1):
@@ -70,8 +72,8 @@ def expanding_circle(strip, max_radius, color, x_center, y_center, wait_ms=50):
         d = 1 - radius
         while x <= y:
             for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-                if 0 <= x_center + dx < MATRIX_WIDTH and 0 <= y_center + dy < MATRIX_HEIGHT:
-                    pixel = zigzag_matrix(x_center + dx, y_center + dy)
+                if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
+                    pixel = zigzag_matrix(xc + dx, yc + dy)
                     strip.setPixelColor(pixel, color)
                     current_pixels.append(pixel)
             if d < 0:
@@ -86,81 +88,20 @@ def expanding_circle(strip, max_radius, color, x_center, y_center, wait_ms=50):
 
 # Mix two colors (average the RGB values)
 def mix_colors(color1,color2):
-    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
-    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
-    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    r = 200
+    g = 200
+    b = 200
     return Color(r,g,b)
-
-# Detecting collision
-def detect_collision(circle1,circle2):
-    dx = circle1[0] - circle2[0]
-    dy = circle1[1] - circle2[1]
-    distance_squared = dx**2 + dy**2
-    return distance_squared <= (circle1[2] + circle2[2]) ** 2
-
-# Handling collision
-def handle_collision(strip, circle1, circle2):
-    pixels1 = circle_pixels(circle1[0],circle1[1],circle1[2])
-    pixels2 = circle_pixels(circle2[0],circle2[1],circle2[2])
-
-    overlapping_pixels = set(pixels1) & set(pixels2)
-
-    for x, y in overlapping_pixels:
-        pixel_index = zigzag_matrix(x,y)
-        mix_color = mix_colors(pixels1[pixel_index],pixels2[pixel_index])
-        strip.setPixelColor(pixel_index, mix_color)
-    strip.show()
-    time.sleep(0.5)
-
-    for x,y in overlapping_pixels:
-        pixel_index = zigzag_matrix(x,y)
-        strip.setPixelColor(pixel_index, Color(0,0,0))
-    strip.show()
-
-# Circles
-circles = []
-
-# Generate circle pixels for a given center and radius
-def circle_pixels(x_circle, y_circle, radius):
-    x = 0
-    y = radius
-    d = 1 - radius
-    pixels = []
-
-    while x <= y:
-        for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-            if 0 <= x_circle + dx < MATRIX_WIDTH and 0 <= y_circle + dy < MATRIX_HEIGHT:
-                pixels.append((x_circle + dx, y_circle + dy))
-        if d < 0:
-            d += 2 * x + 3
-        else:
-            d += 2 * (x - y) + 5
-            y -= 1
-        x += 1
-
-    return pixels
-
-# Generate a unique circle
-def circle_generate(existing_circles):
-    while True:
-        x_center, y_center = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-        if not any(
-            math.hypot(x_center - circle[0], y_center - circle[1]) <= 0
-            for circle in existing_circles
-        ):
-            break
-    color = Color(random.randint(0, 200), random.randint(0, 200), random.randint(0, 200))
-    return x_center, y_center, color
 
 # Main programs
 if __name__ == '__main__':
     # parser setting
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--color', action='store_true', help='clear the display on exit')
+    parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
     args = parser.parse_args()
 
     # LED setting
-    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+    strip = PixelStrip(LED_COUNT,LED_PIN,LED_FREQ_HZ,LED_DMA,LED_INVERT,LED_BRIGHTNESS,LED_CHANNEL)
     strip.begin()
 
     print('Press Ctrl+C to quit')
@@ -170,21 +111,12 @@ if __name__ == '__main__':
 
     try:
         while True:
-            x_center, y_center, color = circle_generate(circles)
-            circles.append([x_center, y_center, 0, color])
+            print('Expanding Circle')
+            expanding_circle(strip, 8, Color(0, 255, 0), 100)
 
-            for circle in circles:
-                expanding_circle(strip, 8, circle[3], circle[0], circle[1], 100)
-                for other_circle in circles:
-                    if circle != other_circle and detect_collision(circle, other_circle):
-                        handle_collision(strip, circle, other_circle)
-                        circles.remove(circle)
-                        circles.remove(other_circle)
-                        break
+            ColorWipe(strip, Color(0, 0, 0), 10)
 
-            strip.show()
-            time.sleep(0.1)
 
     except KeyboardInterrupt:
         if args.color:
-            ColorWipe(strip, Color(0, 0, 0), 10)
+            ColorWipe(strip,Color(0,0,0),10)
