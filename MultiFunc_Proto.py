@@ -142,7 +142,7 @@ if __name__ == '__main__':
 
             # Expanding Circle Test
             print('Expanding Circle')
-            expanding_circle(strip, 8, Color(0, 255, 0), x_center, y_center, 100)
+            expanding_circle(strip, 8, color, x_center, y_center, 100)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
