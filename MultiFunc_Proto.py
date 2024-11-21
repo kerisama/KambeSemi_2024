@@ -55,12 +55,12 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
             x += 1
 
         # Check for collisions
-        collided_pixels = check_collisions(circles, new_pixels)
-        if collided_pixels:
-            # Mix colors for collisions
-            for pixel in collided_pixels:
-                strip.setPixelColor(pixel, mix_colors(strip.getPixelColor(pixel), color))
-            strip.show()
+        collided_circles = check_collisions(circles, new_pixels)
+        if collided_circles:
+            # Remove collided circles
+            for circle in collided_circles:
+                pixel_clear(strip, circle)
+                circles.remove(circle)
             return  # Stop expanding if a collision occurs
 
         # Update and display the new circle
@@ -77,19 +77,11 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
 
 # Check for collisions
 def check_collisions(circles, new_pixels):
-    collided_pixels = []
+    collided_circles = []
     for circle in circles:
-        for pixel in new_pixels:
-            if pixel in circle:
-                collided_pixels.append(pixel)
-    return collided_pixels
-
-# Mix two colors
-def mix_colors(color1, color2):
-    r = ((color1 >> 16 & 0xFF) + (color2 >> 16 & 0xFF)) // 2
-    g = ((color1 >> 8 & 0xFF) + (color2 >> 8 & 0xFF)) // 2
-    b = ((color1 & 0xFF) + (color2 & 0xFF)) // 2
-    return Color(r, g, b)
+        if any(pixel in circle for pixel in new_pixels):
+            collided_circles.append(circle)
+    return collided_circles
 
 # Main programs
 if __name__ == '__main__':
