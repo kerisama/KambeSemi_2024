@@ -36,62 +36,67 @@ def pixel_clear(strip,pixels):
         strip.setPixelColor(pixel,Color(0,0,0))
     strip.show()
 
-def draw_circle(strip,xc,yc,radius,color):
-    x = 0
-    y = radius
-    d = 1 - radius
-
-    while x <= y:
-        # Draw points for each octant
-        for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-            if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
-                strip.setPixelColor(zigzag_matrix(xc + dx, yc + dy), color)
-        if d < 0:
-            d += 2 * x + 3
-        else:
-            d += 2 * (x - y) + 5
-            y -= 1
-        x += 1
-
-# Expand circle
-# Expanding circle with tracked pixels for faster clearing
-def expanding_circle(strip, max_radius, color, wait_ms=50):
-    xc = random.randint(0, MATRIX_WIDTH - 1)
-    yc = random.randint(0, MATRIX_HEIGHT - 1)
+# Expanding circles with collisions
+def expanding_circles(strip, max_radius, colors, num_circles, wait_ms=50):
+    circles = []
     previous_pixels = []
 
-    for radius in range(max_radius + 1):
+    # Initialize circles with random positions
+    for _ in range(num_circles):
+        xc = random.randint(0, MATRIX_WIDTH - 1)
+        yc = random.randint(0, MATRIX_HEIGHT - 1)
+        color = random.choice(colors)
+        circles.append({'xc': xc, 'yc': yc, 'radius': 0, 'color': color})
+
+    while any(circle['radius'] <= max_radius for circle in circles):
         # Clear previous pixels
         if previous_pixels:
             pixel_clear(strip, previous_pixels)
 
-        # Draw new circle and keep track of pixels
         current_pixels = []
-        x = 0
-        y = radius
-        d = 1 - radius
-        while x <= y:
-            for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
-                if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
-                    pixel = zigzag_matrix(xc + dx, yc + dy)
-                    strip.setPixelColor(pixel, color)
-                    current_pixels.append(pixel)
-            if d < 0:
-                d += 2 * x + 3
-            else:
-                d += 2 * (x - y) + 5
-                y -= 1
-            x += 1
+        overlap_pixels = {}
+
+        # Draw all circles
+        for circle in circles:
+            if circle['radius'] > max_radius:
+                continue
+
+            xc, yc, radius, color = circle['xc'], circle['yc'], circle['radius'], circle['color']
+            x = 0
+            y = radius
+            d = 1 - radius
+            while x <= y:
+                for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
+                    if 0 <= xc + dx < MATRIX_WIDTH and 0 <= yc + dy < MATRIX_HEIGHT:
+                        pixel = zigzag_matrix(xc + dx, yc + dy)
+                        if pixel in current_pixels:
+                            overlap_pixels[pixel] = mix_colors(strip.getPixelColor(pixel), color)
+                        else:
+                            strip.setPixelColor(pixel, color)
+                            current_pixels.append(pixel)
+                if d < 0:
+                    d += 2 * x + 3
+                else:
+                    d += 2 * (x - y) + 5
+                    y -= 1
+                x += 1
+            circle['radius'] += 1
+
+        # Handle overlaps
+        for pixel, overlap_color in overlap_pixels.items():
+            strip.setPixelColor(pixel, overlap_color)
+            current_pixels.remove(pixel)
+
         strip.show()
         previous_pixels = current_pixels
         time.sleep(wait_ms / 1000.0)
 
 # Mix two colors (average the RGB values)
-def mix_colors(color1,color2):
-    r = 200
-    g = 200
-    b = 200
-    return Color(r,g,b)
+def mix_colors(color1, color2):
+    r = (color1 >> 16 & 0xFF + color2 >> 16 & 0xFF) // 2
+    g = (color1 >> 8 & 0xFF + color2 >> 8 & 0xFF) // 2
+    b = (color1 & 0xFF + color2 & 0xFF) // 2
+    return Color(r, g, b)
 
 # Main programs
 if __name__ == '__main__':
@@ -112,7 +117,8 @@ if __name__ == '__main__':
     try:
         while True:
             print('Expanding Circle')
-            expanding_circle(strip, 8, Color(0, 255, 0), 100)
+            colors = [Color(255,0,0),Color(0,255,0),Color(0,0,255)]
+            expanding_circles(strip, 8, Color(0, 255, 0), 100)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
