@@ -171,9 +171,10 @@ if __name__ == '__main__':
             # print('Expanding Circle')
             # expanding_circle(strip, 8, color, x_center, y_center, 100)
 
+            # expanding_circle(strip, 8, color, x_center, y_center, 100)
             for circle in circles:
+                expanding_circle(strip, 8, color, x_center, y_center, 100)
                 for other_circle in circles:
-                    expanding_circle(strip, 8, color, x_center, y_center, 100)
                     if circle != other_circle and detect_collision(circle,other_circle):
                         handle_collision(strip,circle,other_circle)
                         circles.remove(circle)
