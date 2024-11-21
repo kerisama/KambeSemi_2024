@@ -180,7 +180,8 @@ if __name__ == '__main__':
 
     try:
         while True:
-            color1,color2 = color_generate()
+            color1 = color_generate()
+            color2 = color_generate()
             # Circle Collision
             print('Colliding Circles')
             colliding_circles(strip, 8, color1, color2, wait_ms=50)
