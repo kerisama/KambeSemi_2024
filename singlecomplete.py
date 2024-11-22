@@ -21,7 +21,7 @@ Y_OUT = DISPLAY_Y - 20
 DISTANCE_ERROR = 30
 
 # SG90のピン設定
-SERVO_PIN = 18  # SG90
+SERVO_PIN = 23  # SG90
 
 # pigpioデーモンに接続し、piオブジェクトを作成
 pi = pigpio.pi()
