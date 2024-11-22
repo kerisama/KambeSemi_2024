@@ -208,8 +208,6 @@ def update_positions(points, target_x, target_y, strip, speed=0.05):
             if dx == 0 and dy == 0:
                 # Point has reached the target
                 points.remove(point)
-                clear_matrix(strip)
-                return
             elif abs(dx) > abs(dy):
                 x += 1 if dx > 0 else -1
             else:
