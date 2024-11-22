@@ -242,6 +242,8 @@ def main():
     print("find position of object:1")
     target_x, target_y = find_pos(timing)
     print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+    target_x /= 10
+    target_y /= 10
     
     sleep(1)
     
