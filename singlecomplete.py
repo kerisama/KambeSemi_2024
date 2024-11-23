@@ -273,7 +273,7 @@ def main():
                 volts = ConvertVolts(data,3)
                 print("Volts: {0}".format(volts))
                 # 一定以上の圧力になったら抜ける
-                if volts > 3:
+                if volts > 2:
                     break
                 sleep(1)
 
