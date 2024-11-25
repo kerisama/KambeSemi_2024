@@ -4,6 +4,16 @@ import math     # 極座標変換
 import VL53L0X  # ToFセンサ
 import random
 from rpi_ws281x import PixelStrip, Color
+import sys
+import spidev
+import os
+
+# SPIバスを開く
+spi = spidev.SpiDev()
+spi.open(0,0)
+spi.max_speed_hz = 1000000
+# 圧力センサのチャンネルの宣言
+force_channel = 0
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -42,6 +52,19 @@ LED_BRIGHTNESS = 10
 LED_INVERT = False
 LED_CHANNEL = 0
 
+# MCP3008から値を読み取るメソッド
+# チャンネル番号は0から7まで
+def ReadChannel(channel):
+    adc = spi.xfer2([1,(8+channel)<<4,0])
+    data = ((adc[1]&3) << 8) + adc[2]
+    return data
+
+# 得た値を電圧に変換するメソッド
+# 指定した桁数で切り捨てる
+def ConvertVolts(data,places):
+    volts = (data * 5) / float(1023)
+    volts = round(volts,places)
+    return volts  
 
 # 変数の初期化
 def valInit():
@@ -205,10 +228,9 @@ def update_positions(points, target_x, target_y, strip, speed=0.05):
             # Calculate direction to target
             dx = target_x - x
             dy = target_y - y
-            if dx <= 0 and dy <= 0:
+            if dx == 0 and dy == 0:
                 # Point has reached the target
                 points.remove(point)
-                break
             elif abs(dx) > abs(dy):
                 x += 1 if dx > 0 else -1
             else:
@@ -226,7 +248,7 @@ def update_positions(points, target_x, target_y, strip, speed=0.05):
 
 def main():
     valInit() # 変数の初期化
-    
+
     # ToF起動
     tof.start_ranging(VL53L0X.VL53L0X_BETTER_ACCURACY_MODE)
 
@@ -237,48 +259,71 @@ def main():
     
     print()
     
-    # 位置検出
-    
-    print("find position of object:1")
-    target_x, target_y = find_pos(timing)
-    print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-    target_x /= 10
-    target_y /= 10
-    
-    sleep(1)
-    
-    # ToFストップ
-    tof.stop_ranging()
-    
     # LED setting
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
+  
+    cnt = 0
 
     try:
         while True:
-            # Generate multiple random starting points and their colors
-            points = []
-            for _ in range(10):  # Number of points
-                x = random.randint(0, MATRIX_WIDTH - 1)
-                y = random.randint(0, MATRIX_HEIGHT - 1)
-                color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                points.append((x, y, color))
+            # 圧力センサで重さ測定
+            while True:
+                data = ReadChannel(force_channel)
+                print("A/D Converter: {0}".format(data))
+                volts = ConvertVolts(data,3)
+                print("Volts: {0}".format(volts))
+                # 一定以下の圧力になったら抜ける
+                if volts <= 4:
+                    break
+                sleep(1)
+
+            # ToFセンサとサーボで物体の位置特定
+            print("find position of object:%d" % (cnt+1))
+            target_x, target_y = find_pos(timing)
+            print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+            target_x /= 10 # mmからcmに変換
+            target_y /= 10 # mmからcmに変換
+
+            # LEDマトリックス
+            while True:#kokokamo
+                # Generate multiple random starting points and their colors
+                points = []
+                for _ in range(10):  # Number of points
+                    x = random.randint(0, MATRIX_WIDTH - 1)
+                    y = random.randint(0, MATRIX_HEIGHT - 1)
+                    color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                    points.append((x, y, color))
 
 
-            print(f"Target position: ({target_x}, {target_y})")
+                print(f"Target position: ({target_x}, {target_y})")
 
-            # Move all points toward the target simultaneously
-            update_positions(points, target_x, target_y, strip, speed=0.05)
+                # Move all points toward the target simultaneously
+                update_positions(points, target_x, target_y, strip, speed=0.05)
 
-            # Pause before resetting
-            sleep(2)
+                # Pause before resetting
+                sleep(2)
 
-            # Clear the matrix
-            clear_matrix(strip)
+                # Clear the matrix
+                clear_matrix(strip)
 
     except KeyboardInterrupt:
+        # 圧力センサに関するものを閉じる
+        spi.close()
+        sys.exit(0)
+        # ToFストップ
+        tof.stop_ranging()
         # Clear on exit
         clear_matrix(strip)
+    
+    # 圧力センサに関するものを閉じる
+    spi.close()
+    sys.exit(0)
+    # ToFストップ
+    tof.stop_ranging()
+    # Clear on exit
+    clear_matrix(strip)
+    
 
     return
 
