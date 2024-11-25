@@ -1,8 +1,8 @@
 import subprocess
 import time
 
-heavy = 30
-music = None
+heavy = 30 #圧力センサ
+music = None #mp3ファイル
 
 if 10 < heavy < 50:
     music = 'sample1.mp3'
@@ -13,5 +13,5 @@ else:
 
 if music:
     while heavy > 10:
-        process = subprocess.Popen(['mpg321', music])
+        subprocess.Popen(['mpg321', music])
 
