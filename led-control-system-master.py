@@ -10,8 +10,12 @@ import time
 from typing import Tuple,List
 
 # Matrix setting
-MATRIX_WIDTH = 16
-MATRIX_HEIGHT = 16
+MATRIX_WIDTH = 16   # 1マトリクスの幅
+MATRIX_HEIGHT = 16  # 1マトリクスの高さ
+
+# Matrix Counts
+MATRIX_ROWS = 1     # 縦方向のマトリクス数
+MATRIX_COLS = 3     # 横方向のマトリクス数
 
 # LED Setting
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT    # LEDの数
@@ -25,8 +29,8 @@ LED_CHANNEL = 0                             # LEDチャンネル
 class MatrixLEDController:
     def __init__(self, uart_ports: List[str]):
         # マトリクス設定
-        self.MATRIX_ROWS = 3    # 縦方向のマトリクス数
-        self.MATRIX_COLS = 4    # 横方向のマトリクス数
+        self.MATRIX_ROWS = MATRIX_ROWS    # 縦方向のマトリクス数
+        self.MATRIX_COLS = MATRIX_COLS    # 横方向のマトリクス数
         self.MATRIX_WIDTH = MATRIX_WIDTH    # 1マトリクスの幅
         self.MATRIX_HEIGHT = MATRIX_HEIGHT  # 1マトリクスの高さ
         self.TOTAL_WIDTH = self.MATRIX_WIDTH * self.MATRIX_COLS     # 全体の幅
