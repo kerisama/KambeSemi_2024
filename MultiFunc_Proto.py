@@ -59,7 +59,8 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
         if collided_circles:
             # Remove collided circles
             for circle in collided_circles:
-                pixel_clear(strip, pixels)
+                time.sleep(2)
+                #pixel_clear(strip, pixels)
                 circles.remove(circle)
             return  # Stop expanding if a collision occurs
 
