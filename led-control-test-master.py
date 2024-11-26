@@ -223,6 +223,10 @@ def main():
     controller.clear()
 
     try:
+        """普通の四角形の描画テスト"""
+        # controller.draw_rectangle(controller.TOTAL_WIDTH - 2, controller.TOTAL_HEIGHT - 2, square_size, square_size, (0, 255, 0))
+
+        """虹色の回転する四角形の描画テスト"""
         while True:
             controller.clear()  # 画面クリア
             controller.draw_rotating_rainbow_square(square_size,angle)  # 虹色の四角を描画
