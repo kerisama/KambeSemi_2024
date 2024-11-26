@@ -6,6 +6,7 @@ import random
 from rpi_ws281x import PixelStrip, Color
 import sys
 import spidev
+import subprocess
 import os
 
 # SPIバスを開く
@@ -277,6 +278,8 @@ def main():
 
     cnt = 0
 
+    music = None    # mp3ファイル
+
     try:
         while True:
             # 圧力センサで重さ測定
@@ -287,8 +290,19 @@ def main():
                 print("Volts: {0}".format(volts))
                 # 一定以下の圧力になったら抜ける
                 if volts <= 4:
+                    # 音を鳴らす
+                    if volts < 8:
+                        music = 'sample1.mp3'
+                    elif 8 <= volts < 16:
+                        music = 'sample2.mp3'
+                    else :
+                        music = None
                     break
                 sleep(1)
+
+                if music:
+                    subprocess.Popen(['mpg321',music])
+                    sleep(0.5)
 
             # ToFセンサとサーボで物体の位置特定
             print("find position of object:%d" % (cnt + 1))
