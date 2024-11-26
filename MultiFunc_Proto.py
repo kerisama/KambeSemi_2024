@@ -4,7 +4,7 @@ import argparse
 import random
 
 # Matrix panels
-MATRIX_ROWS = 2     # 横
+MATRIX_ROWS = 1     # 横
 MATRIX_COLS = 1     # 縦
 
 # Matrix setting
@@ -50,7 +50,7 @@ def mix_colors(color1, color2):
     return Color(r, g, b)
 
 # Delete a circle from the center outward
-def delete_circle_center_out(strip, circle_pixels, center, wait_ms=50):
+def delete_circle(strip, circle_pixels, center, wait_ms=1):
     # Calculate distance of each pixel from the center
     distances = []
     cx, cy = center
@@ -67,7 +67,7 @@ def delete_circle_center_out(strip, circle_pixels, center, wait_ms=50):
         pixel = zigzag_matrix(x, y)
         strip.setPixelColor(pixel, Color(0, 0, 0))
         strip.show()
-        time.sleep(wait_ms / 1000.0)
+        time.sleep(wait_ms / 100000.0)
 
 # Circle collision
 def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
@@ -114,8 +114,8 @@ def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
     # Remove the circles with center-out animation if collision occurred
     if collisions:
         print("Collision detected! Removing circles.")
-        delete_circle_center_out(strip, pixels_circle1, (xc1, yc1), wait_ms)
-        delete_circle_center_out(strip, pixels_circle2, (xc2, yc2), wait_ms)
+        delete_circle(strip, pixels_circle1, (xc1, yc1), wait_ms)
+        delete_circle(strip, pixels_circle2, (xc2, yc2), wait_ms)
 
 # Generate circle pixels for a given center and radius
 def circle_pixels(xc, yc, radius):
