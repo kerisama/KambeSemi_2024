@@ -5,7 +5,7 @@ import math
 import random
 
 # Matrix panels
-MATRIX_ROWS = 2     # 横
+MATRIX_ROWS = 1     # 横
 MATRIX_COLS = 1     # 縦
 
 # Matrix setting
