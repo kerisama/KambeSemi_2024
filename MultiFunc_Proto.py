@@ -3,15 +3,15 @@ from rpi_ws281x import PixelStrip, Color
 import argparse
 import random
 
-# Matrix panels
+# マトリクス枚数
 MATRIX_ROWS = 1     # 横
 MATRIX_COLS = 1     # 縦
 
-# Matrix setting
+# マトリクス設定
 MATRIX_WIDTH = 16 * MATRIX_ROWS
 MATRIX_HEIGHT = 16 * MATRIX_COLS
 
-# LED Setting
+# LED設定
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
 LED_PIN = 18
 LED_FREQ_HZ = 800000
@@ -20,27 +20,27 @@ LED_BRIGHTNESS = 10
 LED_INVERT = False
 LED_CHANNEL = 0
 
-# Define zigzag matrix
+# ジグザグ配線の修正
 def zigzag_matrix(x, y):
     if y % 2 == 0:  # Even rows
         return y * MATRIX_WIDTH + x
     else:  # Odd rows
         return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
 
-# Color Wiping
+# カラーワイプ
 def ColorWipe(strip,color,wait_ms=50):
     for i in range(strip.numPixels()):
         strip.setPixelColor(i,color)
         strip.show()
         time.sleep(wait_ms/1000.0)
 
-# Clear specific pixels
+# LEDの消灯
 def pixel_clear(strip, pixels):
     for pixel in pixels:
         strip.setPixelColor(pixel, Color(0, 0, 0))
     strip.show()
 
-# Mix colors (example: average of two colors)
+# 色を混ぜる
 def mix_colors(color1, color2):
     r1, g1, b1 = (color1 >> 16) & 0xFF, (color1 >> 8) & 0xFF, color1 & 0xFF
     r2, g2, b2 = (color2 >> 16) & 0xFF, (color2 >> 8) & 0xFF, color2 & 0xFF
@@ -49,7 +49,7 @@ def mix_colors(color1, color2):
     b = (b1 + b2) // 2
     return Color(r, g, b)
 
-# Delete a circle from the center outward
+# 円が内側から消えている
 def delete_circle(strip, circle_pixels, center, wait_ms=1):
     # Calculate distance of each pixel from the center
     distances = []
@@ -70,10 +70,7 @@ def delete_circle(strip, circle_pixels, center, wait_ms=1):
         time.sleep(wait_ms / 100000.0)
 
 # Circle collision
-def colliding_circles(strip, max_radius, color1, color2, wait_ms=50):
-    # Randomly decide the centers of two circles
-    xc1, yc1 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-    xc2, yc2 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wait_ms=50):
 
     # Track drawn pixels
     pixels_circle1 = []
@@ -144,6 +141,8 @@ if __name__ == '__main__':
     parser.add_argument('-c','--color',action='store_true',help='clear the display on exit')
     args = parser.parse_args()
 
+    max_radius = MATRIX_WIDTH // 2
+
     # LED setting
     strip = PixelStrip(LED_COUNT,LED_PIN,LED_FREQ_HZ,LED_DMA,LED_INVERT,LED_BRIGHTNESS,LED_CHANNEL)
     strip.begin()
@@ -155,11 +154,18 @@ if __name__ == '__main__':
 
     try:
         while True:
-            print('Colliding Circles')
-            colliding_circles(strip, 8, Color(255, 0, 0), Color(0, 0, 255), wait_ms=50)
+            # ランダムな位置に中心点を決める (デモ用)
+            # サーボモータ&ToFセンサの値を用いて中心を決める
+            xc1, yc1 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+            xc2, yc2 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
 
-            # print('Expanding Circle')
-            # expanding_circle(strip, 8, Color(0, 255, 0), 100)
+            # ランダムな色
+            color1 = Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+            color2 = Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+            # 円がぶつかったら色が変わって消える
+            print('Colliding Circles')
+            colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wait_ms=50)
 
             ColorWipe(strip, Color(0, 0, 0), 10)
 
