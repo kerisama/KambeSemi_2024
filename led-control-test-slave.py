@@ -46,7 +46,7 @@ class LEDSlave:
             LED_INVERT,
             LED_BRIGHTNESS,
             LED_CHANNEL,
-            ws.WS2811_STRIP_GRB
+            # ws.WS2811_STRIP_GRB
         )
         self.strip.begin()
 
