@@ -59,6 +59,10 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
         if collided_circles:
             # Remove collided circles
             for circle in collided_circles:
+                for pixel in circle:
+                    strip.setPixelColor(pixel,Color(250,250,250))
+                strip.show()
+
                 center_x = circle[0] % MATRIX_WIDTH
                 center_y = circle[0] // MATRIX_WIDTH
                 time.sleep(2)
