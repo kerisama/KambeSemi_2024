@@ -3,9 +3,13 @@ from rpi_ws281x import PixelStrip, Color
 import argparse
 import random
 
+# Matrix panels
+MATRIX_ROWS = 2     # 横
+MATRIX_COLS = 1     # 縦
+
 # Matrix setting
-MATRIX_WIDTH = 16
-MATRIX_HEIGHT = 16
+MATRIX_WIDTH = 16 * MATRIX_ROWS
+MATRIX_HEIGHT = 16 * MATRIX_COLS
 
 # LED Setting
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
@@ -22,6 +26,13 @@ def zigzag_matrix(x, y):
         return y * MATRIX_WIDTH + x
     else:  # Odd rows
         return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
+
+# Color Wiping
+def ColorWipe(strip,color,wait_ms=50):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i,color)
+        strip.show()
+        time.sleep(wait_ms/1000.0)
 
 # Clear specific pixels
 def pixel_clear(strip, pixels):
