@@ -59,8 +59,10 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
         if collided_circles:
             # Remove collided circles
             for circle in collided_circles:
+                center_x = circle[0] % MATRIX_WIDTH
+                center_y = circle[0] // MATRIX_WIDTH
                 time.sleep(2)
-                #pixel_clear(strip, pixels)
+                delete_circle(strip,circle,(center_x,center_y),50)
                 circles.remove(circle)
             return  # Stop expanding if a collision occurs
 
@@ -83,6 +85,27 @@ def check_collisions(circles, new_pixels):
         if any(pixel in circle for pixel in new_pixels):
             collided_circles.append(circle)
     return collided_circles
+
+# Deleting circle from center
+def delete_circle(strip,pixels,center,wait_ms=50):
+    # Calculate distance from center for each pixel
+    distances = []
+    for pixel in pixels:
+        x = pixel % MATRIX_WIDTH
+        y = pixel // MATRIX_WIDTH
+        cx, cy = center
+        distance = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+        distances.append((distance,pixel))
+
+    # Sort pixels by distance from center
+    distances.sort()
+    sorted_pixels = [pixels for _, pixel in distances]
+
+    # Clear pixels in order of distance
+    for pixel in sorted_pixels:
+        strip.setPixelColor(pixel,Color(0,0,0))
+        strip.show()
+        time.sleep(wait_ms / 1000.0)
 
 # Main programs
 if __name__ == '__main__':
