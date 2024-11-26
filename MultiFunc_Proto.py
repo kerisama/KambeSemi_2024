@@ -59,12 +59,12 @@ def expanding_circle(strip, circles, max_radius, color, wait_ms=50):
         if collided_circles:
             # Remove collided circles
             for circle in collided_circles:
-                pixel_clear(strip, circle)
+                pixel_clear(strip, pixels)
                 circles.remove(circle)
             return  # Stop expanding if a collision occurs
 
         # Update and display the new circle
-        pixel_clear(strip, pixels)  # Clear previous circle
+        # pixel_clear(strip, pixels)  # Clear previous circle
         for pixel in new_pixels:
             strip.setPixelColor(pixel, color)
         strip.show()
