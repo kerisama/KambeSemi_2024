@@ -68,142 +68,142 @@ class MatrixLEDController:
         )
         self.strip.begin()
 
-        def coordinate_to_device(self, x: int, y: int) -> Tuple[int, int, int]:
-            """グローバル座標(x,y)をデバイス番号と局所座標に変換"""
-            matrix_x = x // self.MATRIX_WIDTH
-            matrix_y = y // self.MATRIX_HEIGHT
-            device_number = matrix_y * self.MATRIX_COLS + matrix_x
+    def coordinate_to_device(self, x: int, y: int) -> Tuple[int, int, int]:
+        """グローバル座標(x,y)をデバイス番号と局所座標に変換"""
+        matrix_x = x // self.MATRIX_WIDTH
+        matrix_y = y // self.MATRIX_HEIGHT
+        device_number = matrix_y * self.MATRIX_COLS + matrix_x
 
-            # マトリクス内での相対座標
-            local_x = x % self.MATRIX_WIDTH
-            local_y = y % self.MATRIX_HEIGHT
+        # マトリクス内での相対座標
+        local_x = x % self.MATRIX_WIDTH
+        local_y = y % self.MATRIX_HEIGHT
 
-            # マトリクス内でのLED番号（ジグザグパターン対応）
-            if local_y % 2 == 0:
-                local_position = local_y * self.MATRIX_WIDTH + local_x
+        # マトリクス内でのLED番号（ジグザグパターン対応）
+        if local_y % 2 == 0:
+            local_position = local_y * self.MATRIX_WIDTH + local_x
+        else:
+            local_position = local_y * self.MATRIX_WIDTH + (self.MATRIX_WIDTH - 1 - local_x)
+
+        return device_number, local_position, (local_x, local_y)
+
+    def set_pixel(self, x: int, y: int, color: Tuple[int, int, int]):
+        """全体の座標系でピクセルの色を設定"""
+        if 0 <= x < self.TOTAL_WIDTH and 0 <= y < self.TOTAL_HEIGHT:
+            device_number, local_position, _ = self.coordinate_to_device(x, y)
+
+            if device_number == 0:
+                self.strip.setPixelColor(local_position, Color(*color))
+            elif device_number == len(self.uart_connections) + 1:
+                command = f"LED:{local_position}:{color[0]}:{color[1]}:{color[2]}\n"
+                self.uart_connections[device_number-1].write(command.encode())
+
+    def show(self):
+        """すべてのデバイスを更新する"""
+        self.strip.show()
+        for uart in self.uart_connections:
+            uart.write(b"SHOW\n")
+
+    def clear(self):
+        """すべてのLEDをクリア"""
+        for y in range(self.TOTAL_HEIGHT):
+            for x in range(self.TOTAL_WIDTH):
+                self.set_pixel(x, y, (0, 0, 0))
+        self.show()
+
+    def hsv_to_rgb(self, h: float, s: float, v: float) -> Tuple[int, int, int]:
+        """HSV色空間をRGB化"""
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        return (int(r * 255), int(g * 255), int(b * 255))
+
+    def draw_rectangle(self, x: int, y: int, width: int, height: int, color: Tuple[int, int, int],
+                       fill: bool = True):
+        """四角形を描画"""
+        for i in range(width):
+            for j in range(height):
+                if fill or i == 0 or i == width - 1 or j == 0 or j == height - 1:
+                    cur_x = x + i
+                    cur_y = y + j
+                    if (0 <= cur_x < self.TOTAL_WIDTH and
+                            0 <= cur_y < self.TOTAL_HEIGHT):
+                        self.set_pixel(cur_x, cur_y, color)
+
+    def rotate_point(self, x: int, y: int, cx: int, cy: int, angle_red: float) -> Tuple[int,int]:
+        cos_a = math.cos(angle_red)
+        sin_a = math.sin(angle_red)
+
+        # 中心を原点に移動する
+        dx = x - cx
+        dy = y - cy
+
+        # 回転させる
+        rx = dx * cos_a + dy * sin_a
+        ry = dx * sin_a + dy * cos_a
+
+        return (int(rx * cx), int(ry * cy))
+
+    """虹色の正方形を描画する"""
+    def draw_rotating_rainbow_square(self, size: int, angle: float):
+        # 中心点
+        center_x = self.TOTAL_WIDTH // 2
+        center_y = self.TOTAL_HEIGHT // 2
+
+        # 正方形の原点 (中心からの相対座標)
+        half_size = size //2
+        square_points = [
+            (-half_size, -half_size),
+            (half_size, -half_size),
+            (half_size, half_size),
+            (-half_size, half_size),
+        ]
+
+        # 回転後の原点計算
+        rotated_points = [
+            self.rotate_point(x + center_x, y + center_y, center_x, center_y, angle)
+            for x, y in square_points
+        ]
+
+        # 各辺を描画する
+        for i in range(4):
+            start = rotated_points[i]
+            end = rotated_points[(i + 1) % 4]
+
+            dx = abs(end[0] - start[0])
+            dy = abs(end[1] - start[1])
+            x, y = start
+
+            steep = dy > dx
+            if steep:
+                x, y = y, x
+                dx, dy = dy, dx
+                start = (start[1], start[0])
+                end = (end[1], end[0])
+
+            if start[0] > end[0]:
+                x, end_x = end[0], start[0]
+                y = end[1]
+                step_y = -1 if end[1] > start[1] else 1
             else:
-                local_position = local_y * self.MATRIX_WIDTH + (self.MATRIX_WIDTH - 1 - local_x)
+                x, end_x = start[0], end[0]
+                y = start[1]
+                ster_y = 1 if end[1] > start[1] else -1
 
-            return device_number, local_position, (local_x, local_y)
+            error = dx // 2
 
-        def set_pixel(self, x: int, y: int, color: Tuple[int, int, int]):
-            """全体の座標系でピクセルの色を設定"""
-            if 0 <= x < self.TOTAL_WIDTH and 0 <= y < self.TOTAL_HEIGHT:
-                device_number, local_position, _ = self.coordinate_to_device(x, y)
+            # 変に沿って虹色を描画する
+            for px in range(x, end_x + 1):
+                # 現在の位置に基づいて色を計算
+                hue = (i / 4 + px / self.TOTAL_WIDTH) % 1.0
+                color = self.hsv_to_rgb(hue, 1.0, 1.0)
 
-                if device_number == 0:
-                    self.strip.setPixelColor(local_position, Color(*color))
-                elif device_number == len(self.uart_connections) + 1:
-                    command = f"LED:{local_position}:{color[0]}:{color[1]}:{color[2]}\n"
-                    self.uart_connections[device_number-1].write(command.encode())
-
-        def show(self):
-            """すべてのデバイスを更新する"""
-            self.strip.show()
-            for uart in self.uart_connections:
-                uart.write(b"SHOW\n")
-
-        def clear(self):
-            """すべてのLEDをクリア"""
-            for y in range(self.TOTAL_HEIGHT):
-                for x in range(self.TOTAL_WIDTH):
-                    self.set_pixel(x, y, (0, 0, 0))
-            self.show()
-
-        def hsv_to_rgb(self, h: float, s: float, v: float) -> Tuple[int, int, int]:
-            """HSV色空間をRGB化"""
-            r, g, b = colorsys.hsv_to_rgb(h, s, v)
-            return (int(r * 255), int(g * 255), int(b * 255))
-
-        def draw_rectangle(self, x: int, y: int, width: int, height: int, color: Tuple[int, int, int],
-                           fill: bool = True):
-            """四角形を描画"""
-            for i in range(width):
-                for j in range(height):
-                    if fill or i == 0 or i == width - 1 or j == 0 or j == height - 1:
-                        cur_x = x + i
-                        cur_y = y + j
-                        if (0 <= cur_x < self.TOTAL_WIDTH and
-                                0 <= cur_y < self.TOTAL_HEIGHT):
-                            self.set_pixel(cur_x, cur_y, color)
-
-        def rotate_point(self, x: int, y: int, cx: int, cy: int, angle_red: float) -> Tuple[int,int]:
-            cos_a = math.cos(angle_red)
-            sin_a = math.sin(angle_red)
-
-            # 中心を原点に移動する
-            dx = x - cx
-            dy = y - cy
-
-            # 回転させる
-            rx = dx * cos_a + dy * sin_a
-            ry = dx * sin_a + dy * cos_a
-
-            return (int(rx * cx), int(ry * cy))
-
-        """虹色の正方形を描画する"""
-        def draw_rotating_rainbow_square(self, size: int, angle: float):
-            # 中心点
-            center_x = self.TOTAL_WIDTH // 2
-            center_y = self.TOTAL_HEIGHT // 2
-
-            # 正方形の原点 (中心からの相対座標)
-            half_size = size //2
-            square_points = [
-                (-half_size, -half_size),
-                (half_size, -half_size),
-                (half_size, half_size),
-                (-half_size, half_size),
-            ]
-
-            # 回転後の原点計算
-            rotated_points = [
-                self.rotate_point(x + center_x, y + center_y, center_x, center_y, angle)
-                for x, y in square_points
-            ]
-
-            # 各辺を描画する
-            for i in range(4):
-                start = rotated_points[i]
-                end = rotated_points[(i + 1) % 4]
-
-                dx = abs(end[0] - start[0])
-                dy = abs(end[1] - start[1])
-                x, y = start
-
-                steep = dy > dx
                 if steep:
-                    x, y = y, x
-                    dx, dy = dy, dx
-                    start = (start[1], start[0])
-                    end = (end[1], end[0])
-
-                if start[0] > end[0]:
-                    x, end_x = end[0], start[0]
-                    y = end[1]
-                    step_y = -1 if end[1] > start[1] else 1
+                    self.set_pixel(y,px,color)
                 else:
-                    x, end_x = start[0], end[0]
-                    y = start[1]
-                    ster_y = 1 if end[1] > start[1] else -1
+                    self.set_pixel(px,y,color)
 
-                error = dx // 2
-
-                # 変に沿って虹色を描画する
-                for px in range(x, end_x + 1):
-                    # 現在の位置に基づいて色を計算
-                    hue = (i / 4 + px / self.TOTAL_WIDTH) % 1.0
-                    color = self.hsv_to_rgb(hue, 1.0, 1.0)
-
-                    if steep:
-                        self.set_pixel(y,px,color)
-                    else:
-                        self.set_pixel(px,y,color)
-
-                    error -= dy
-                    if error < 0:
-                        y += step_y
-                        error += dx
+                error -= dy
+                if error < 0:
+                    y += step_y
+                    error += dx
 
 
 def main():
