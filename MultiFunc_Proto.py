@@ -87,7 +87,7 @@ def check_collisions(circles, new_pixels):
     return collided_circles
 
 # Deleting circle from center
-def delete_circle(strip,pixels,center,wait_ms=50):
+def delete_circle(strip, pixels, center, wait_ms=50):
     color = Color(0, 0, 0)
     # Calculate distance from center for each pixel
     distances = []
@@ -96,15 +96,15 @@ def delete_circle(strip,pixels,center,wait_ms=50):
         y = pixel // MATRIX_WIDTH
         cx, cy = center
         distance = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-        distances.append((distance,pixel))
+        distances.append((distance, pixel))
 
     # Sort pixels by distance from center
     distances.sort()
-    sorted_pixels = [pixels for _, pixel in distances]
+    sorted_pixels = [pixel for _, pixel in distances]  # 修正点
 
     # Clear pixels in order of distance
     for pixel in sorted_pixels:
-        strip.setPixelColor(pixel,color)
+        strip.setPixelColor(pixel, color)
         strip.show()
         time.sleep(wait_ms / 1000.0)
 
