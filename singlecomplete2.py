@@ -302,7 +302,8 @@ def main():
             # LEDマトリックス
             # Generate multiple random starting points and their colors
             points = []
-            for _ in range(10):  # Number of points
+            generated_points = random.randint(4,volts * 2)  # 点の数を決める
+            for _ in range(generated_points):  # Number of points
                 x = random.randint(0, MATRIX_WIDTH - 1)
                 y = random.randint(0, MATRIX_HEIGHT - 1)
                 color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
