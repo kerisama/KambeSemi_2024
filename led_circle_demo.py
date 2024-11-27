@@ -4,9 +4,13 @@ import argparse
 import math
 import random
 
+# Matrix panels
+MATRIX_ROWS = 1     # 横
+MATRIX_COLS = 1     # 縦
+
 # Matrix setting
-MATRIX_WIDTH = 16
-MATRIX_HEIGHT = 16
+MATRIX_WIDTH = 16 * MATRIX_ROWS
+MATRIX_HEIGHT = 16 * MATRIX_COLS
 
 # LED Setting
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
@@ -31,6 +35,7 @@ def ColorWipe(strip,color,wait_ms=50):
         strip.show()
         time.sleep(wait_ms/1000.0)
 
+# Clear Matrix
 def pixel_clear(strip,pixels):
     for pixel in pixels:
         strip.setPixelColor(pixel,Color(0,0,0))
