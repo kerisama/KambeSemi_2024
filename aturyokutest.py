@@ -22,22 +22,26 @@ def ConvertVolts(data,places):
  volts = round(volts,places)
  return volts
 
-# センサのチャンネルの宣言
-force_channel = 0
-
 # 値を読むのを遅らせる
 delay = 0.25
 
 # メインクラス
 if __name__ == '__main__':
- try:
-  while True:
-   data = ReadChannel(force_channel)
-   print("A/D Converter: {0}".format(data))
-   volts = ConvertVolts(data,3)
-   print("Volts: {0}".format(volts))
-   time.sleep(delay)
-# 何か入力したら終了
- except KeyboardInterrupt:
-  spi.close()
-  sys.exit(0)
+    try:
+        while True:
+            data_total = 0
+            for i in range(4):
+                # センサのチャンネルの切り替え
+                data = ReadChannel(i)
+                data_total += data
+                print("channel: %d" % (i))
+                print("A/D Converter: {0}".format(data))
+                volts = ConvertVolts(data,3)
+                print("Volts: {0}".format(volts))
+            print("Data total: {0}\n".format(data_total))
+            time.sleep(1)
+        
+    # 何か入力したら終了
+    except KeyboardInterrupt:
+        spi.close()
+        sys.exit(0)
