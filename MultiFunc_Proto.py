@@ -1,4 +1,4 @@
-import time
+from time import sleep
 from rpi_ws281x import PixelStrip, Color
 import argparse
 import random
@@ -37,7 +37,7 @@ def ColorWipe(strip,color,wait_ms=50):
     for i in range(strip.numPixels()):
         strip.setPixelColor(i,color)
         strip.show()
-        time.sleep(wait_ms/1000.0)
+        (sleep(wait_ms/1000.0))
 
 # LEDの消灯
 def pixel_clear(strip, pixels):
@@ -72,7 +72,7 @@ def delete_circle(strip, circle_pixels, center, wait_ms=1):
         pixel = zigzag_matrix(x, y)
         strip.setPixelColor(pixel, Color(0, 0, 0))
         strip.show()
-        time.sleep(wait_ms / 100000.0)
+        sleep(wait_ms / 100000.0)
 
 # Circle collision
 def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wait_ms=50):
@@ -88,6 +88,7 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
         for x, y in circle_pixels(xc1, yc1, radius):
             pixel = zigzag_matrix(x, y)
             print(f"Pixel index for (x, y) = {x,y}: {zigzag_matrix(x, y)}")
+            sleep(1)
             if (x, y) in pixels_circle2:  # Collision detected
                 collisions.append((x, y))
                 strip.setPixelColor(pixel, mix_colors(color1, color2))  # Change color to mixed color
@@ -100,6 +101,7 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
         for x, y in circle_pixels(xc2, yc2, radius):
             pixel = zigzag_matrix(x, y)
             print(f"Pixel index for (x, y) = {x, y}: {zigzag_matrix(x, y)}")
+            sleep(1)
             if (x, y) in pixels_circle1:  # Collision detected
                 collisions.append((x, y))
                 strip.setPixelColor(pixel, mix_colors(color1, color2))  # Change color to mixed color
@@ -113,7 +115,7 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
 
         # Show the updated frame
         strip.show()
-        time.sleep(wait_ms / 1000.0)
+        sleep(wait_ms / 1000.0)
 
     # Remove the circles with center-out animation if collision occurred
     if collisions:
