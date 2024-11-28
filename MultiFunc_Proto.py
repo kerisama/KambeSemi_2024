@@ -8,7 +8,7 @@ DEFAULT_MATRIX_WIDTH = 16
 DEFAULT_MATRIX_HEIGHT = 16
 
 # マトリクス枚数
-MATRIX_ROWS = 2     # 横
+MATRIX_ROWS = 1     # 横
 MATRIX_COLS = 2     # 縦
 
 # マトリクス設定
