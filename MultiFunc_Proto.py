@@ -5,7 +5,7 @@ import random
 
 # マトリクス枚数
 MATRIX_ROWS = 1     # 横
-MATRIX_COLS = 1     # 縦
+MATRIX_COLS = 2     # 縦
 
 # マトリクス設定
 MATRIX_WIDTH = 16 * MATRIX_ROWS
@@ -22,11 +22,6 @@ LED_CHANNEL = 0
 
 # ジグザグ配線の修正
 def zigzag_matrix(x, y):
-    for y in range(MATRIX_HEIGHT):
-        for x in range(MATRIX_WIDTH):
-            index = zigzag_matrix(x, y)
-            print(f"({x}, {y}) -> {index}")
-
     if y % 2 == 0:  # Even rows
         return y * MATRIX_WIDTH + x
     else:  # Odd rows
@@ -86,9 +81,8 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
         # Draw first circle
         new_pixels_circle1 = []
         for x, y in circle_pixels(xc1, yc1, radius):
+            # print(f"Pixel index for (x, y) = {x, y}: {zigzag_matrix(x, y)}")
             pixel = zigzag_matrix(x, y)
-            print(f"Pixel index for (x, y) = {x,y}: {zigzag_matrix(x, y)}")
-            sleep(1)
             if (x, y) in pixels_circle2:  # Collision detected
                 collisions.append((x, y))
                 strip.setPixelColor(pixel, mix_colors(color1, color2))  # Change color to mixed color
@@ -100,14 +94,14 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
         new_pixels_circle2 = []
         for x, y in circle_pixels(xc2, yc2, radius):
             pixel = zigzag_matrix(x, y)
-            print(f"Pixel index for (x, y) = {x, y}: {zigzag_matrix(x, y)}")
-            sleep(1)
             if (x, y) in pixels_circle1:  # Collision detected
                 collisions.append((x, y))
                 strip.setPixelColor(pixel, mix_colors(color1, color2))  # Change color to mixed color
             else:
                 strip.setPixelColor(pixel, color2)
                 new_pixels_circle2.append((x, y))
+
+        sleep(1)
 
         # Update circle pixels
         pixels_circle1.extend(new_pixels_circle1)
@@ -141,7 +135,7 @@ def circle_pixels(xc, yc, radius):
             y -= 1
         x += 1
 
-        print(f"Circle pixels for center ({xc}, {yc}) and radius {radius}: {pixels}")
+        # print(f"Circle pixels for center ({xc}, {yc}) and radius {radius}: {pixels}")
 
     return pixels
 
@@ -167,7 +161,7 @@ if __name__ == '__main__':
             # ランダムな位置に中心点を決める (デモ用)
             # サーボモータ&ToFセンサの値を用いて中心を決める
             xc1, yc1 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-            print(f"target1: ({xc1,yc1})")
+            print(f"target1: ({xc1, yc1})")
             xc2, yc2 = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
             print(f"target2: ({xc2, yc2})")
 

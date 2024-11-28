@@ -72,7 +72,7 @@ class MatrixLEDController:
         """グローバル座標(x,y)をデバイス番号と局所座標に変換"""
         matrix_x = x // self.MATRIX_WIDTH
         matrix_y = y // self.MATRIX_HEIGHT
-        device_number = matrix_y * self.MATRIX_COLS + matrix_x
+        device_number = matrix_y * self.MATRIX_COLS + matrix_x * self.MATRIX_ROWS
 
         # マトリクス内での相対座標
         local_x = x % self.MATRIX_WIDTH
