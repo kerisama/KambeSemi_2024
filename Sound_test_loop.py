@@ -13,6 +13,8 @@ else:
 
 if music:
     while heavy > 10:
-        subprocess.Popen(['mpg321', music])
-        time.sleep(0.5)
+        process = subprocess.Popen(['mpg321', music])
+        process.wait() 
+
+    process.terminate()
 
