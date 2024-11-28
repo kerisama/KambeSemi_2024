@@ -3,8 +3,12 @@ from rpi_ws281x import PixelStrip, Color
 import argparse
 import random
 
+# デフォルトのマトリクス
+DEFAULT_MATRIX_WIDTH = 16
+DEFAULT_MATRIX_HEIGHT = 16
+
 # マトリクス枚数
-MATRIX_ROWS = 1     # 横
+MATRIX_ROWS = 2     # 横
 MATRIX_COLS = 2     # 縦
 
 # マトリクス設定
@@ -23,9 +27,9 @@ LED_CHANNEL = 0
 # ジグザグ配線の修正
 def zigzag_matrix(x, y):
     if y % 2 == 0:  # Even rows
-        return y * MATRIX_WIDTH + x
+        return y * DEFAULT_MATRIX_WIDTH + x
     else:  # Odd rows
-        return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
+        return y * DEFAULT_MATRIX_WIDTH + (DEFAULT_MATRIX_WIDTH - 1 - x)
 
 # カラーワイプ
 def ColorWipe(strip,color,wait_ms=50):
