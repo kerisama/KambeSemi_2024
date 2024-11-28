@@ -12,8 +12,8 @@ MATRIX_ROWS = 2     # 横
 MATRIX_COLS = 2     # 縦
 
 # マトリクス設定
-MATRIX_WIDTH = 16 * MATRIX_ROWS
-MATRIX_HEIGHT = 16 * MATRIX_COLS
+MATRIX_WIDTH = DEFAULT_MATRIX_WIDTH * MATRIX_ROWS
+MATRIX_HEIGHT = DEFAULT_MATRIX_HEIGHT * MATRIX_COLS
 
 # LED設定
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
@@ -27,9 +27,9 @@ LED_CHANNEL = 0
 # ジグザグ配線の修正
 def zigzag_matrix(x, y):
     if y % 2 == 0:  # Even rows
-        return y * DEFAULT_MATRIX_WIDTH + x
+        return y * MATRIX_WIDTH + x
     else:  # Odd rows
-        return y * DEFAULT_MATRIX_WIDTH + (DEFAULT_MATRIX_WIDTH - 1 - x)
+        return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
 
 # カラーワイプ
 def ColorWipe(strip,color,wait_ms=50):
@@ -105,7 +105,7 @@ def colliding_circles(strip, max_radius, xc1, yc1, xc2, yc2, color1, color2, wai
                 strip.setPixelColor(pixel, color2)
                 new_pixels_circle2.append((x, y))
 
-        sleep(1)
+        # sleep(1)
 
         # Update circle pixels
         pixels_circle1.extend(new_pixels_circle1)
@@ -157,6 +157,7 @@ if __name__ == '__main__':
     strip.begin()
 
     print('Press Ctrl+C to quit')
+    print(f"Matrix Dimensions: {MATRIX_WIDTH}x{MATRIX_HEIGHT}")
     if not args.color:
         print('Use -c argument to clear LEDs on exit')
 
