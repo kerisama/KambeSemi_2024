@@ -94,6 +94,7 @@ class MatrixLEDController:
             if device_number == 0:
                 self.strip.setPixelColor(local_position, Color(*color))
             elif device_number == len(self.uart_connections) + 1:
+                """ スレーブに通信 """
                 command = f"LED:{local_position}:{color[0]}:{color[1]}:{color[2]}\n"
                 self.uart_connections[device_number-1].write(command.encode())
 
@@ -101,6 +102,7 @@ class MatrixLEDController:
         """すべてのデバイスを更新する"""
         self.strip.show()
         for uart in self.uart_connections:
+            """ スレーブに通信 """
             uart.write(b"SHOW\n")
 
     def clear(self):
