@@ -43,12 +43,6 @@ def send_command(command, ip_list, port=12345):
     """スレーブにコマンドを送信する。"""
     for ip in ip_list:
         try:
-            if ip == '192.168.10.61':  # スレーブ1のIP
-                offset_x = 16  # スレーブ1のx方向オフセット
-                offset_y = 0   # スレーブ1のy方向オフセット
-                # 座標にオフセットを加える
-                modified_coordinates = [(x + offset_x, y + offset_y) for (x, y) in command["coordinates"]]
-                command["coordinates"] = modified_coordinates
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 client_socket.connect((ip, port))
                 data = json.dumps(command).encode('utf-8')  # JSONデータをエンコード
@@ -57,17 +51,15 @@ def send_command(command, ip_list, port=12345):
         except Exception as e:
             print(f"Failed to send to {ip}: {e}")
 
-
-
 if __name__ == '__main__':
     # スレーブのIPリスト
     slave_ips = ['192.168.10.61']  # スレーブ1のIP
 
-    # マスターが描画する座標（0,0から15,15まで）
-    master_coordinates = [(x, y) for y in range(16) for x in range(y + 1)]
-
-    # スレーブ1に送る座標（16,0から31,15まで）
-    slave_coordinates = [(x + 16, y) for y in range(16) for x in range(y + 1)]
+    # 描画対象座標（全体座標）
+    coordinates = []
+    for y in range(16):
+        for x in range(0, y + 1):
+            coordinates.append((x, y))
 
     # 描画色
     color = [0, 0, 255]  # 青色
@@ -76,15 +68,13 @@ if __name__ == '__main__':
     clear_screen()
 
     # マスターが自身の領域を描画
-    draw_master(master_coordinates, color)
+    draw_master(coordinates, color)
 
-    # スレーブ1にコマンドを送信
+    # スレーブ1にコマンドを送信（スレーブに自分の担当領域を描画）
+    slave_coordinates = [(x + 16, y) for x, y in coordinates]  # スレーブの担当領域に変換
     command = {
         "type": "draw",
         "coordinates": slave_coordinates,
         "color": color
     }
     send_command(command, slave_ips)
-
-
-    
