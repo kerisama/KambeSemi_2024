@@ -2,7 +2,7 @@ import socket
 import json
 from rpi_ws281x import PixelStrip, Color
 
-# LED設定（16×16マトリクスに対応）
+# LED設定
 LED_COUNT = 256  # 16x16
 LED_PIN = 18
 LED_FREQ_HZ = 800000
@@ -14,7 +14,7 @@ LED_INVERT = False
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
-# スレーブの担当領域（例: 2番目のスレーブ）
+# スレーブ1の担当領域
 SLAVE_ORIGIN_X = 16  # x方向のオフセット
 SLAVE_ORIGIN_Y = 0   # y方向のオフセット
 

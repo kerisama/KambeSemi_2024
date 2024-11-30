@@ -2,7 +2,7 @@ import socket
 import json
 from rpi_ws281x import PixelStrip, Color
 
-# LED設定（16×16マトリクスに対応）
+# LED設定
 LED_COUNT = 256  # 16x16
 LED_PIN = 18
 LED_FREQ_HZ = 800000
@@ -14,7 +14,7 @@ LED_INVERT = False
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
-# マスターの担当領域（1番としての役割）
+# マスターの担当領域（1番の役割）
 MASTER_ORIGIN_X = 0
 MASTER_ORIGIN_Y = 0
 
@@ -51,12 +51,17 @@ def send_command(command, ip_list, port=12345):
             print(f"Failed to send to {ip}: {e}")
 
 if __name__ == '__main__':
-    # スレーブのIPリスト（例: スレーブ1のIP）
-    slave_ips = ['192.168.1.101']
+    # スレーブのIPリスト
+    slave_ips = ['192.168.10.61']  # スレーブ1のIP
 
-    # 描画対象座標と色
-    coordinates = [(10, 5), (20, 15), (35, 25)]  # 全体座標
-    color = [255, 0, 0]  # 赤色
+    # 描画対象座標（全体座標）
+    coordinates = []
+    for y in range(16):
+        for x in range(0, y + 1):
+            coordinates.append((x, y))
+
+    # 描画色
+    color = [0, 0, 255]  # 青色
 
     # 画面をクリア
     clear_screen()
@@ -64,7 +69,7 @@ if __name__ == '__main__':
     # マスターが自身の領域を描画
     draw_master(coordinates, color)
 
-    # スレーブに描画コマンドを送信
+    # スレーブ1にコマンドを送信
     command = {
         "type": "draw",
         "coordinates": coordinates,
