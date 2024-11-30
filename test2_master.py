@@ -43,7 +43,6 @@ def send_command(command, ip_list, port=12345):
     """スレーブにコマンドを送信する。"""
     for ip in ip_list:
         try:
-            # スレーブに送信するために座標にオフセットを加える
             if ip == '192.168.10.61':  # スレーブ1のIP
                 offset_x = 16  # スレーブ1のx方向オフセット
                 offset_y = 0   # スレーブ1のy方向オフセット
@@ -57,6 +56,7 @@ def send_command(command, ip_list, port=12345):
                 print(f"Sent command to {ip}")
         except Exception as e:
             print(f"Failed to send to {ip}: {e}")
+
 
 
 if __name__ == '__main__':
@@ -85,5 +85,6 @@ if __name__ == '__main__':
         "color": color
     }
     send_command(command, slave_ips)
+
 
     
