@@ -60,6 +60,9 @@ def send_command(command, ip_list, port=12345):
 
 
 if __name__ == '__main__':
+    # スレーブのIPリスト
+    slave_ips = ['192.168.10.61']  # スレーブ1のIP
+
     # マスターが描画する座標（0,0から15,15まで）
     master_coordinates = [(x, y) for y in range(16) for x in range(y + 1)]
 
@@ -83,3 +86,4 @@ if __name__ == '__main__':
     }
     send_command(command, slave_ips)
 
+    
