@@ -34,14 +34,14 @@ def handle_command(command):
     """受信したコマンドに応じて描画処理を実行する。"""
     if command["type"] == "draw":
         for global_x, global_y in command["coordinates"]:
-            # スレーブのオフセットを考慮してローカル座標に変換
-            local_x = global_x - SLAVE_ORIGIN_X
-            local_y = global_y - SLAVE_ORIGIN_Y
+            local_x = global_x - SLAVE_ORIGIN_X  # 自分の領域に変換
+            local_y = global_y - SLAVE_ORIGIN_Y  # 自分の領域に変換
             if 0 <= local_x < 16 and 0 <= local_y < 16:  # 自分の範囲内
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
     elif command["type"] == "clear":
         clear_screen()
+
 
 def start_server(port=12345):
     """スレーブがコマンドを待機するサーバー。"""
