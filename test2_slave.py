@@ -1,0 +1,61 @@
+import socket
+import json
+from rpi_ws281x import PixelStrip, Color
+
+# LED設定（16×16マトリクスに対応）
+LED_COUNT = 256  # 16x16
+LED_PIN = 18
+LED_FREQ_HZ = 800000
+LED_DMA = 10
+LED_BRIGHTNESS = 10
+LED_INVERT = False
+
+# PixelStripオブジェクトの初期化
+strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
+strip.begin()
+
+# スレーブの担当領域（例: 2番目のスレーブ）
+SLAVE_ORIGIN_X = 16  # x方向のオフセット
+SLAVE_ORIGIN_Y = 0   # y方向のオフセット
+
+def set_pixel_local(x, y, color):
+    """ローカル座標でピクセルに色を設定する。"""
+    if 0 <= x < 16 and 0 <= y < 16:  # スレーブの範囲
+        index = y * 16 + x
+        strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+
+def clear_screen():
+    """LEDマトリクスを消灯。"""
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
+
+def handle_command(command):
+    """受信したコマンドに応じて描画処理を実行する。"""
+    if command["type"] == "draw":
+        for global_x, global_y in command["coordinates"]:
+            local_x = global_x - SLAVE_ORIGIN_X
+            local_y = global_y - SLAVE_ORIGIN_Y
+            if 0 <= local_x < 16 and 0 <= local_y < 16:  # 自分の範囲内
+                set_pixel_local(local_x, local_y, command["color"])
+        strip.show()
+    elif command["type"] == "clear":
+        clear_screen()
+
+def start_server(port=12345):
+    """スレーブがコマンドを待機するサーバー。"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind(("0.0.0.0", port))
+        server_socket.listen()
+        print("スレーブが待機中...")
+        while True:
+            conn, _ = server_socket.accept()
+            with conn:
+                data = conn.recv(1024).decode('utf-8')
+                if data:
+                    command = json.loads(data)
+                    handle_command(command)
+
+if __name__ == '__main__':
+    clear_screen()
+    start_server()
