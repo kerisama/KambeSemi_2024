@@ -52,13 +52,21 @@ def start_server(port=12345):
         while True:
             conn, _ = server_socket.accept()
             with conn:
-                data = conn.recv(1024).decode('utf-8')
-                if data:
-                    try:
-                        command = json.loads(data)  # 受け取ったデータをJSONとして解釈
-                        handle_command(command)  # コマンドに従って描画
-                    except json.JSONDecodeError:
-                        print(f"無効なJSONデータを受信しました: {data}")
+                data = b""
+                while True:
+                    # データを受信する。サイズが十分でない場合は繰り返し受信
+                    chunk = conn.recv(1024)
+                    if not chunk:
+                        break
+                    data += chunk  # 受信したデータをバッファに追加
+
+                try:
+                    command = json.loads(data.decode('utf-8'))  # JSONデータとしてデコード
+                    handle_command(command)
+                except json.JSONDecodeError as e:
+                    print(f"JSONデコードエラー: {e}")
+                    print(f"受信したデータ: {data}")
+
 
 if __name__ == '__main__':
     clear_screen()  # 初期化で消灯

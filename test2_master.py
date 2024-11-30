@@ -45,10 +45,12 @@ def send_command(command, ip_list, port=12345):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 client_socket.connect((ip, port))
-                client_socket.sendall(json.dumps(command).encode('utf-8'))
+                data = json.dumps(command).encode('utf-8')  # JSONデータをエンコード
+                client_socket.sendall(data)  # 正しくデータを送信
                 print(f"Sent command to {ip}")
         except Exception as e:
             print(f"Failed to send to {ip}: {e}")
+
 
 if __name__ == '__main__':
     # スレーブのIPリスト
