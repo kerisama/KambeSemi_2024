@@ -69,10 +69,11 @@ if __name__ == '__main__':
     # マスターが自身の領域を描画
     draw_master(coordinates, color)
 
-    # スレーブ1にコマンドを送信
+    # スレーブ1にコマンドを送信（スレーブに自分の担当領域を描画）
+    slave_coordinates = [(x + 16, y) for x, y in coordinates]  # スレーブの担当領域に変換
     command = {
         "type": "draw",
-        "coordinates": coordinates,
+        "coordinates": slave_coordinates,
         "color": color
     }
     send_command(command, slave_ips)

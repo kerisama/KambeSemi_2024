@@ -34,6 +34,7 @@ def handle_command(command):
     """受信したコマンドに応じて描画処理を実行する。"""
     if command["type"] == "draw":
         for global_x, global_y in command["coordinates"]:
+            # スレーブのオフセットを考慮してローカル座標に変換
             local_x = global_x - SLAVE_ORIGIN_X
             local_y = global_y - SLAVE_ORIGIN_Y
             if 0 <= local_x < 16 and 0 <= local_y < 16:  # 自分の範囲内
@@ -53,9 +54,13 @@ def start_server(port=12345):
             with conn:
                 data = conn.recv(1024).decode('utf-8')
                 if data:
-                    command = json.loads(data)
-                    handle_command(command)
+                    try:
+                        command = json.loads(data)  # 受け取ったデータをJSONとして解釈
+                        handle_command(command)  # コマンドに従って描画
+                    except json.JSONDecodeError:
+                        print(f"無効なJSONデータを受信しました: {data}")
 
 if __name__ == '__main__':
-    clear_screen()
-    start_server()
+    clear_screen()  # 初期化で消灯
+    start_server()  # サーバー開始
+
