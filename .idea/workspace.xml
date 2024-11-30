@@ -5,10 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5b909ab7-a188-4056-bbb5-5f18b1217940" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/KambeSemi_2024/findpos2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/circle_master.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_master.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/KambeSemi_2024" beforeDir="false" afterPath="$PROJECT_DIR$/KambeSemi_2024" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/KambeSemi_2024/Single function_test.py" beforeDir="false" />
@@ -42,7 +40,7 @@
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "22rd044__MultiFunc",
+    "git-widget-placeholder": "ConnectTest",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
@@ -71,7 +69,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1732846573941</updated>
-      <workItem from="1732846575658" duration="3542000" />
+      <workItem from="1732846575658" duration="4887000" />
     </task>
     <servers />
   </component>
