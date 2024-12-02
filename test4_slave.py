@@ -17,10 +17,11 @@ strip.begin()
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
 SLAVE_COLS = 0  # 縦方向
+LED_PER_PANEL = 16  # 列ごとのLED数 (16)
 
 # スレーブ1の担当領域
-SLAVE_ORIGIN_X = 16 * SLAVE_ROWS  # x方向のオフセット
-SLAVE_ORIGIN_Y = 16 * SLAVE_COLS   # y方向のオフセット
+SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット (16~)
+SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS   # y方向のオフセット (0~)
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
@@ -30,7 +31,7 @@ def zigzag_transform(x, y, width=16):
 
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
-    if 16 <= x < 32 and 0 <= y < 16:  # スレーブの範囲
+    if SLAVE_ORIGIN_X <= x < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= y < SLAVE_ORIGIN_Y + 16:  # スレーブの範囲
         index = y * 16 + x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
 
@@ -51,7 +52,7 @@ def handle_command(command):
             # デバッグ出力: 座標変換の結果
             print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
 
-            if 16 <= local_x < 32 and 0 <= local_y < 16:  # 自分の範囲内
+            if SLAVE_ORIGIN_X <= local_x < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= local_y < SLAVE_ORIGIN_Y + 16:  # 自分の範囲内
                 zigzag_transform(local_x, local_y)  #   ジグザグ配列の修正
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
