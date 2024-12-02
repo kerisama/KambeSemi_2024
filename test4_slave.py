@@ -30,9 +30,8 @@ def zigzag_transform(x, y, width):
 
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
-    if 0 <= x < 16 and 0 <= y < 16:  # スレーブの範囲
+    if 16 <= x < 32 and 0 <= y < 16:  # スレーブの範囲
         index = y * 16 + x
-
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
 
 def clear_screen():
@@ -52,9 +51,7 @@ def handle_command(command):
             # デバッグ出力: 座標変換の結果
             print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
 
-            local_x, local_y = zigzag_transform(local_x, local_y, 16)
-
-            if 0 <= local_x < 16 and 0 <= local_y < 16:  # 自分の範囲内
+            if 16 <= local_x < 32 and 0 <= local_y < 16:  # 自分の範囲内
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
     elif command["type"] == "clear":
