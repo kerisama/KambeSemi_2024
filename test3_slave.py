@@ -18,14 +18,24 @@ strip.begin()
 SLAVE_ROWS = 1  # 横方向
 SLAVE_COLS = 0  # 縦方向
 
+LED_PER_PANEL = 16
+
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = 16 * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = 16 * SLAVE_COLS   # y方向のオフセット
 
+# ジグザグ配列の修正
+def zigzag_matrix(x, y):
+    if y % 2 == 0:  # Even rows
+        return y * LED_PER_PANEL + x
+    else:  # Odd rows
+        return y * LED_PER_PANEL + (LED_PER_PANEL - 1 - x)
+
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
     if 0 <= x < 16 and 0 <= y < 16:  # スレーブの範囲
-        index = y * 16 + x
+        index = zigzag_matrix(y * 16, x)
+        # index = y * 16 + x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
 
 def clear_screen():

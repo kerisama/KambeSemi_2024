@@ -19,6 +19,13 @@ MATRIX_WIDTH = 4
 MATRIX_HEIGHT = 3
 LED_PER_PANEL = 16
 
+# ジグザグ配列の修正
+def zigzag_matrix(x, y):
+    if y % 2 == 0:  # Even rows
+        return y * LED_PER_PANEL + x
+    else:  # Odd rows
+        return y * LED_PER_PANEL + (LED_PER_PANEL - 1 - x)
+
 def clear_screen():
     """LEDマトリクスを消灯。"""
     for i in range(LED_COUNT):
@@ -29,6 +36,7 @@ def draw_master(coordinates, color):
     """マスターが自身の範囲内の座標を描画する。"""
     for global_x, global_y in coordinates:
         if 0 <= global_x < LED_PER_PANEL and 0 <= global_y < LED_PER_PANEL:
+            index = zigzag_matrix(global_x, global_y * LED_PER_PANEL)
             index = global_y * LED_PER_PANEL + global_x
             strip.setPixelColor(index, Color(color[0], color[1], color[2]))
     strip.show()
