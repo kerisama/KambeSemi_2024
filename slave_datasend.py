@@ -13,7 +13,7 @@ import socket
 import json
 
 # 通信関連の設定
-MASTER_IP = "192.168.10.59"  # マスターのIPアドレスを実際の値に変更してください
+MASTER_IP = "192.168.10.59"  # マスターのIPアドレスを実際の値に変更
 MASTER_PORT = 5000
 
 # SPIバスを開く
@@ -60,21 +60,58 @@ LED_BRIGHTNESS = 10
 LED_INVERT = False
 LED_CHANNEL = 0
 
-# ソケット通信用の関数
-def setup_socket():
+def get_device_id():
+    # Raspberry Piのシリアル番号を取得してデバイスIDとして使用
     try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((MASTER_IP, MASTER_PORT))
-        print(f"Connected to master at {MASTER_IP}:{MASTER_PORT}")
-        return client_socket
-    except Exception as e:
-        print(f"Failed to connect to master: {e}")
-        return None
+        with open('/proc/cpuinfo', 'r') as f:
+            for line in f:
+                if line.startswith('Serial'):
+                    return line.split(':')[1].strip()
+    except:
+        # シリアル番号が取得できない場合はホスト名を使用
+        return subprocess.check_output(['hostname']).decode().strip()
 
-def send_sensor_data(socket, target_x, target_y, data_total):
+def setup_socket():
+    device_id = get_device_id()
+    max_retries = 5
+    retry_delay = 3
+    
+    for attempt in range(max_retries):
+        try:
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.settimeout(10)
+            print(f"Attempting to connect to master at {MASTER_IP}:{MASTER_PORT} (attempt {attempt + 1})")
+            client_socket.connect((MASTER_IP, MASTER_PORT))
+            
+            # デバイスIDを送信
+            init_data = {
+                "type": "init",
+                "device_id": device_id
+            }
+            client_socket.send(json.dumps(init_data).encode())
+            
+            client_socket.settimeout(None)
+            print(f"Successfully connected to master with device ID: {device_id}")
+            return client_socket, device_id
+            
+        except socket.timeout:
+            print(f"Connection attempt {attempt + 1} timed out")
+        except ConnectionRefusedError:
+            print(f"Connection refused - is the master running? (attempt {attempt + 1})")
+        except Exception as e:
+            print(f"Connection attempt {attempt + 1} failed: {e}")
+        
+        if attempt < max_retries - 1:
+            sleep(retry_delay)
+            print(f"Retrying in {retry_delay} seconds...")
+    
+    return None, None
+
+def send_sensor_data(socket, device_id, target_x, target_y, data_total):
     try:
         data = {
             "type": "sensor_data",
+            "device_id": device_id,
             "position": {
                 "x": target_x,
                 "y": target_y
@@ -82,13 +119,23 @@ def send_sensor_data(socket, target_x, target_y, data_total):
             "pressure": data_total
         }
         json_data = json.dumps(data).encode()
-        socket.send(json_data)
         dt_now = datetime.datetime.now()
         print(dt_now)
-        print(f"Sent data: {data}")
-        
+        socket.send(json_data)
+        return socket
+    except socket.error:
+        # 接続が切れた場合は再接続を試みる
+        print("Connection lost. Attempting to reconnect...")
+        new_socket, new_device_id = setup_socket()
+        if new_socket:
+            print("Reconnected successfully")
+            return new_socket
+        else:
+            print("Failed to reconnect")
+            return None
     except Exception as e:
         print(f"Error sending data: {e}")
+        return socket
 
 # MCP3008から値を読み取るメソッド
 # チャンネル番号は0から7まで
@@ -272,7 +319,7 @@ def main():
 
     # ソケット接続のセットアップ
     while True:
-        client_socket = setup_socket()
+        client_socket, device_id = setup_socket()
         if client_socket is None:
             print("Failed to setup socket connection. Exiting...")
             continue
@@ -309,7 +356,7 @@ def main():
                     print("A/D Converter: {0}".format(data))
                     volts = ConvertVolts(data,3)
                     print("Volts: {0}".format(volts))
-                data_total = 2500  # デバック用圧力値
+                data_total = 2500 # デバック用圧力合計値
                 print("Data total: {0}\n".format(data_total))
                 # 一定以下の圧力になったら抜ける
                 if data_total <= 3600:
@@ -319,15 +366,19 @@ def main():
                         MP3_PATH = 'sample2.mp3'
                         break
                 sleep(1)
-            
+
             # ToFセンサとサーボで物体の位置特定
             print("find position of object:%d" % (cnt + 1))
             target_x, target_y = find_pos(timing)
             print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-
-            # センサーデータの送信を追加
-            send_sensor_data(client_socket, target_x, target_y, data_total)
             
+            # センサーデータの送信とソケット管理
+            if client_socket:
+                client_socket = send_sensor_data(client_socket, device_id, target_x, target_y, data_total)
+                if client_socket is None:
+                    print("Lost connection to master. Exiting...")
+                    break
+
             target_x /= 10 # mmからcmに変換
             target_y /= 10 # mmからcmに変換
 

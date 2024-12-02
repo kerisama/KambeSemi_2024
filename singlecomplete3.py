@@ -303,7 +303,7 @@ def main():
                     print("Volts: {0}".format(volts))
                 # ４つの圧力の合計値(通信する変数1:data_total)
                 print("Data total: {0}\n".format(data_total))
-                data_total = 2000
+                data_total = 2000 # デバック用圧力合計値
                 # 一定以下の圧力になったら抜ける
                 if data_total <= 3600:
                     if data_total < 1800:
