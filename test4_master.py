@@ -15,11 +15,11 @@ strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRI
 strip.begin()
 
 # マトリクスLEDの配置設定 (4x3)
-MATRIX_WIDTH = 4
-MATRIX_HEIGHT = 3
+MATRIX_WIDTH = 2
+MATRIX_HEIGHT = 1
 LED_PER_PANEL = 16
 
-def zigzag_transform(x, y, width):
+def zigzag_transform(x, y, width = LED_PER_PANEL):
     """ジグザグ配列に変換する座標"""
     if y % 2 == 1:  # 奇数行の場合
         x = width - 1 - x
@@ -35,6 +35,7 @@ def draw_master(coordinates, color):
     """マスターが自身の範囲内の座標を描画する。"""
     for global_x, global_y in coordinates:
         if 0 <= global_x < LED_PER_PANEL and 0 <= global_y < LED_PER_PANEL:
+            global_x, global_y = zigzag_transform(global_x, global_y)
             index = global_y * LED_PER_PANEL + global_x
             strip.setPixelColor(index, Color(color[0], color[1], color[2]))
     strip.show()

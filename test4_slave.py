@@ -46,7 +46,7 @@ def handle_command(command):
     if command["type"] == "draw":
         for global_x, global_y in command["coordinates"]:
             # スレーブのオフセットを考慮してローカル座標に変換
-            local_x = global_x - SLAVE_ORIGIN_X
+            local_x = global_x + SLAVE_ORIGIN_X
             local_y = global_y - SLAVE_ORIGIN_Y
 
             # デバッグ出力: 座標変換の結果
