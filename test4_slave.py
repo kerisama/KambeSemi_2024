@@ -22,7 +22,7 @@ SLAVE_COLS = 0  # 縦方向
 SLAVE_ORIGIN_X = 16 * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = 16 * SLAVE_COLS   # y方向のオフセット
 
-def zigzag_transform(x, y, width):
+def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
     if y % 2 == 1:
         x = width - 1 - x
@@ -52,6 +52,7 @@ def handle_command(command):
             print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
 
             if 16 <= local_x < 32 and 0 <= local_y < 16:  # 自分の範囲内
+                zigzag_transform(local_x, local_y)  #   ジグザグ配列の修正
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
     elif command["type"] == "clear":
