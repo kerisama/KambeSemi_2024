@@ -232,6 +232,7 @@ def clear_matrix(strip):
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
+        print("a")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:
@@ -300,10 +301,11 @@ def main():
                     print("A/D Converter: {0}".format(data))
                     volts = ConvertVolts(data,3)
                     print("Volts: {0}".format(volts))
+                # ４つの圧力の合計値(通信する変数1:data_total)
                 print("Data total: {0}\n".format(data_total))
+                data_total = 2000
                 # 一定以下の圧力になったら抜ける
                 if data_total <= 3600:
-                    # 音を鳴らす
                     if data_total < 1800:
                         MP3_PATH = 'sample1.mp3'
                     else:
@@ -311,18 +313,22 @@ def main():
                         break
                 sleep(1)
             """
-            #subprocess.call("mpg321 sample1.mp3", shell=True)
-            args = ['mpg321', MP3_PATH]
-            prosess = subprocess.Popen(args)
-            sleep(10)
+            #os.system("amixer sset Master on")
+            print()
+            # 音を鳴らす
+            #subprocess.Popen(['aplay', 'test.wav'])
+            sleep(3)
             args =  ['kill', str(process.pid)]
             subprocess.Popen(args)
+            #os.system("amixer sset Master off")
+            print()
             """
             
             # ToFセンサとサーボで物体の位置特定
             print("find position of object:%d" % (cnt + 1))
             target_x, target_y = find_pos(timing)
             print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+            # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
             target_x /= 10 # mmからcmに変換
             target_y /= 10 # mmからcmに変換
 
@@ -351,6 +357,9 @@ def main():
             clear_matrix(strip)
 
     except KeyboardInterrupt:
+        if process:
+            args = ['kill', str(process.pid)]
+            subprocess.Popen(args)
         # 圧力センサに関するものを閉じる
         spi.close()
         sys.exit(0)
