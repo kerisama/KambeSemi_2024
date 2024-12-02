@@ -22,12 +22,6 @@ SLAVE_COLS = 0  # 縦方向
 SLAVE_ORIGIN_X = 16 * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = 16 * SLAVE_COLS   # y方向のオフセット
 
-def zigzag_transform(x, y, width):
-    """ジグザグ配列に変換する座標"""
-    if y % 2 == 1:
-        x = width - 1 - x
-    return x, y
-
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
     if 0 <= x < 16 and 0 <= y < 16:  # スレーブの範囲
@@ -47,7 +41,6 @@ def handle_command(command):
             # スレーブのオフセットを考慮してローカル座標に変換
             local_x = global_x - SLAVE_ORIGIN_X
             local_y = global_y - SLAVE_ORIGIN_Y
-            local_x, local_y = zigzag_transform(local_x, local_y, 16)
             if 0 <= local_x < 16 and 0 <= local_y < 16:  # 自分の範囲内
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()

@@ -19,12 +19,6 @@ MATRIX_WIDTH = 4
 MATRIX_HEIGHT = 3
 LED_PER_PANEL = 16
 
-def zigzag_transform(x, y, width):
-    """ジグザグ配列に変換する座標"""
-    if y % 2 == 1:  # 奇数行の場合
-        x = width - 1 - x
-    return x, y
-
 def clear_screen():
     """LEDマトリクスを消灯。"""
     for i in range(LED_COUNT):
@@ -55,7 +49,6 @@ def calculate_slave_coordinates(global_coordinates):
     """各スレーブに送る描画範囲を計算。"""
     slave_coordinates = [[] for _ in range(MATRIX_WIDTH * MATRIX_HEIGHT)]
     for x, y in global_coordinates:
-        x,y = zigzag_transform(x,y)     # ジグザグ配列修正
         panel_x = x // LED_PER_PANEL
         panel_y = y // LED_PER_PANEL
         panel_index = panel_y * MATRIX_WIDTH + panel_x
