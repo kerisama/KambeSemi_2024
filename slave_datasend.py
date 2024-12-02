@@ -271,10 +271,12 @@ def main():
     valInit()  # 変数の初期化
 
     # ソケット接続のセットアップ
-    client_socket = setup_socket()
-    if client_socket is None:
-        print("Failed to setup socket connection. Exiting...")
-        return
+    while True:
+        client_socket = setup_socket()
+        if client_socket is None:
+            print("Failed to setup socket connection. Exiting...")
+            continue
+        break
 
     # ToF起動
     tof.start_ranging(VL53L0X.VL53L0X_BETTER_ACCURACY_MODE)
@@ -307,7 +309,7 @@ def main():
                     print("A/D Converter: {0}".format(data))
                     volts = ConvertVolts(data,3)
                     print("Volts: {0}".format(volts))
-                data_total = 3500  # デバック用圧力値
+                data_total = 2500  # デバック用圧力値
                 print("Data total: {0}\n".format(data_total))
                 # 一定以下の圧力になったら抜ける
                 if data_total <= 3600:
