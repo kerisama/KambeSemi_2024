@@ -118,10 +118,15 @@ def animate_circles():
         time.sleep(0.1)
 
     # Clear circles from the center outwards
-    for circle in [circle1, circle2]:
-        for pixel in sorted(circle, key=lambda p: math.dist([xc1, yc1], p)):
+    def clear_from_center(circle_pixels, center):
+        cx, cy = center
+        sorted_pixels = sorted(circle_pixels, key=lambda p: math.dist([cx, cy], p))
+        for pixel in sorted_pixels:
             draw_frame([pixel], [0, 0, 0])
             time.sleep(0.01)
+
+    clear_from_center(circle1, (xc1, yc1))
+    clear_from_center(circle2, (xc2, yc2))
 
 
 if __name__ == '__main__':
