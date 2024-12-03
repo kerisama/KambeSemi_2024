@@ -1,3 +1,4 @@
+# スレーブ用コード
 import socket
 import json
 from rpi_ws281x import PixelStrip, Color
@@ -21,21 +22,22 @@ LED_PER_PANEL = 16  # 列ごとのLED数 (16)
 
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット (16~)
-SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS   # y方向のオフセット (0~)
+SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット (0~)
+
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
     if y % 2 == 1:
-        x = width - 1 - x
-        if x < 0 :
-            x += 2*x
+        x = LED_PER_PANEL - 1 - x
     return x, y
+
 
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
-    if SLAVE_ORIGIN_X <= x < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= y < SLAVE_ORIGIN_Y + 16:  # スレーブの範囲
-        index = y * 16 + x
-        strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+
+    index = y * 16 + x
+    strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+
 
 def clear_screen():
     """LEDマトリクスを消灯。"""
@@ -43,23 +45,26 @@ def clear_screen():
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
 
+
 def handle_command(command):
-    """受信したコマンドに応じて描画処理を実行する。"""
+    # 受信したコマンドに応じて描画処理を実行する
     if command["type"] == "draw":
         for global_x, global_y in command["coordinates"]:
-            # グローバル座標をローカル座標に変換
+            # スレーブのオフセットを考慮してローカル座標に変換
             local_x = global_x - SLAVE_ORIGIN_X
             local_y = global_y - SLAVE_ORIGIN_Y
 
-            if 0 <= local_x < LED_PER_PANEL and 0 <= local_y < LED_PER_PANEL:  # 自分の範囲内
-                zigzag_x, zigzag_y = zigzag_transform(local_x, local_y)  # ジグザグ配列修正
-                index = zigzag_y * LED_PER_PANEL + zigzag_x
-                color_value = Color(command["color"][0], command["color"][1], command["color"][2])
-                strip.setPixelColor(index, color_value)
+            # デバッグ出力: 座標変換の結果
+            print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
 
+            local_x, local_y = zigzag_transform(local_x, local_y)  # ジグザグ配列の修正
+            # ジグザグ変換後の座標をデバッグ出力
+            print(f"ジグザグ変換: ({local_x}, {local_y})")
+            set_pixel_local(local_x, local_y, command["color"])
         strip.show()
     elif command["type"] == "clear":
         clear_screen()
+
 
 def start_server(port=12345):
     """スレーブがコマンドを待機するサーバー。"""
@@ -85,6 +90,7 @@ def start_server(port=12345):
                     command = json.loads(data.decode('utf-8'))  # JSONデータとしてデコード
                     # デバッグ出力: デコード後のコマンド
                     print(f"受信したコマンド: {command}")
+
                     handle_command(command)
                 except json.JSONDecodeError as e:
                     print(f"JSONデコードエラー: {e}")
