@@ -28,7 +28,7 @@ def zigzag_transform(x, y, width=16):
     if y % 2 == 1:
         x = width - 1 - x
         if x < 0 :
-            x += 2*x
+            x += x*-1
     return x, y
 
 def set_pixel_local(x, y, color):
