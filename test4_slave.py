@@ -53,7 +53,9 @@ def handle_command(command):
             print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
 
             if SLAVE_ORIGIN_X <= local_x < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= local_y < SLAVE_ORIGIN_Y + 16:  # 自分の範囲内
-                zigzag_transform(local_x, local_y)  #   ジグザグ配列の修正
+                local_x,local_y = zigzag_transform(local_x, local_y)  #   ジグザグ配列の修正
+                # ジグザグ変換後の座標をデバッグ出力
+                print(f"ジグザグ変換: ({local_x}, {local_y})")
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
     elif command["type"] == "clear":
