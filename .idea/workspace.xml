@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5b909ab7-a188-4056-bbb5-5f18b1217940" name="Changes" comment="" />
+    <list default="true" id="5b909ab7-a188-4056-bbb5-5f18b1217940" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/Circle_master.py" beforeDir="false" afterPath="$PROJECT_DIR$/Circle_master.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

@@ -75,13 +75,19 @@ def draw_frame(frame_pixels, color):
     master_pixels = [p for p in frame_pixels if p[0] < LED_PER_PANEL and p[1] < LED_PER_PANEL]
     slave_pixels = [[] for _ in SLAVE_IPS]
 
+    # Allocate pixels to master or appropriate slave
     for p in frame_pixels:
         panel_x = p[0] // LED_PER_PANEL
         panel_y = p[1] // LED_PER_PANEL
         if panel_x == 0 and panel_y == 0:
             continue
         index = panel_y * MATRIX_WIDTH + panel_x - 1
-        slave_pixels[index].append((p[0] % LED_PER_PANEL, p[1] % LED_PER_PANEL))
+        if index >= 0 and index < len(slave_pixels):  # Ensure valid slave index
+            slave_pixels[index].append((p[0] % LED_PER_PANEL, p[1] % LED_PER_PANEL))
+
+    # Remove duplicates from each slave's coordinates
+    for i in range(len(slave_pixels)):
+        slave_pixels[i] = list(set(slave_pixels[i]))
 
     # Draw master pixels
     for x, y in master_pixels:
@@ -96,6 +102,9 @@ def draw_frame(frame_pixels, color):
             command = {"type": "draw", "coordinates": slave_pixels[i], "color": color}
             send_command(command, [ip])
 
+    print(f"Master: {master_pixels}")
+    for i, slave in enumerate(slave_pixels):
+        print(f"Slave {i}: {slave}")
 
 def animate_circles():
     max_radius = min(MATRIX_GLOBAL_WIDTH, MATRIX_GLOBAL_HEIGHT) // 2
