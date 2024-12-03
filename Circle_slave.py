@@ -34,7 +34,8 @@ def zigzag_transform(x, y, width=16):
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
     if 0 <= x < LED_PER_PANEL and 0 <= y < LED_PER_PANEL:
-        index = zigzag_transform(x, y)
+        zigzag_x,zigzag_y = zigzag_transform(x, y)
+        index = zigzag_y * LED_PER_PANEL + zigzag_x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
 
 
