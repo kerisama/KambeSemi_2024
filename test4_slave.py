@@ -27,6 +27,8 @@ def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
     if y % 2 == 1:
         x = width - 1 - x
+        if x < 0 :
+            x += 2*x
     return x, y
 
 def set_pixel_local(x, y, color):
