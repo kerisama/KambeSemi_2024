@@ -23,8 +23,7 @@ MATRIX_HEIGHT = 2  # Number of vertical panels
 MATRIX_GLOBAL_WIDTH = MATRIX_WIDTH * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = MATRIX_HEIGHT * LED_PER_PANEL
 
-# Communication setup
-# SLAVE_IPS = ['192.168.10.61','192.168.10.59','192.168.10.54']  # Add more as needed
+# 通信設定
 PORT = 5000
 
 # Initialize master LED strip
@@ -178,44 +177,61 @@ def draw_frame(frame_pixels, color):
 def animate_circles(server):
     # max_radius = min(MATRIX_GLOBAL_WIDTH, MATRIX_GLOBAL_HEIGHT) // 2
     max_radius = 15
+
+    # 円の中心を指定
     # xc1, yc1 = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
     # xc2, yc2 = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
     xc1, yc1 = 15, 1
-    # xc2, yc2 = 18, 1
-    color1 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-    # color2 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    xc2, yc2 = 18, 1
 
+    # 色の指定
+    color1 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    color2 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+
+    # 円の描画
     for radius in range(max_radius):
         circle1 = circle_pixels(xc1, yc1, radius)
-        # circle2 = circle_pixels(xc2, yc2, radius)
+        circle2 = circle_pixels(xc2, yc2, radius)
 
-        # Check collision and mix colors if needed
-        # collision = set(circle1) & set(circle2)
-        # for x, y in collision:
-        #    draw_frame([(x, y)], [(color1[0] + color2[0]) // 2, (color1[1] + color2[1]) // 2, (color1[2] + color2[2]) // 2])
-        slave_pixels, color = draw_frame(circle1, color1)
-        # Send slave commands
+        # 衝突処理
+        collision = set(circle1) & set(circle2)
+        if collision:
+            mix_color = [
+                (color1[0] + color2[0]) // 2,
+                (color1[1] + color2[1]) // 2,
+                (color1[2] + color2[2]) // 2
+            ]
+
+        slave_pixels1, color1 = draw_frame(circle1, color1)
+        slave_pixels2, color2 = draw_frame(circle2, color2)
+        # スレーブに送信
         # slave_pixelsがあれば全スレーブに送信(broadcast)
-        if len(slave_pixels):
-            command = {"type": "draw", "coordinates": slave_pixels, "color": color}
+        if len(slave_pixels1):  # 円1の描画
+            command = {"type": "draw", "coordinates": slave_pixels1, "color": color1}
             server.broadcast(command)
-        # draw_frame(circle2, color2)
+        if len(slave_pixels2):  # 円2の描画
+            command = {"type": "draw", "coordinates": slave_pixels2, "color": color2}
+            server.broadcast(command)
+        time.sleep(0.1)
+
+    # 消す
+    for radius in range(max_radius):
+        circle1 = circle_pixels(xc1,yc1,radius)
+        circle2 = circle_pixels(xc2,yc2,radius)
+        slave_pixels1, color1 = draw_frame(circle1,Color(0,0,0))
+        slave_pixels2, color2 = draw_frame(circle2,Color(0,0,0))
+        if len(slave_pixels1):  # 円1の削除
+            command = {"type": "draw", "coordinates": slave_pixels1, "color": color1}
+            server.broadcast(command)
+        if len(slave_pixels2):  # 円2の削除
+            command = {"type": "draw", "coordinates": slave_pixels2, "color": color2}
+            server.broadcast(command)
         time.sleep(0.1)
     return server
 
-    # Clear circles from the center outwards
-    # def clear_from_center(circle_pixels, center):
-    #     cx, cy = center
-    #     sorted_pixels = sorted(circle_pixels, key=lambda p: math.dist([cx, cy], p))
-    #     for pixel in sorted_pixels:
-    #         draw_frame([pixel], [0, 0, 0])
-    #         time.sleep(0.01)
-
-    # clear_from_center(circle1, (xc1, yc1))
-    # clear_from_center(circle2, (xc2, yc2))
-
 
 if __name__ == '__main__':
+    # 通信設定
     clear_screen()
     server = MultiClientServer()
     server_thread = threading.Thread(target=server.start_server)
@@ -223,8 +239,10 @@ if __name__ == '__main__':
     server_thread.start()
     try:
         while True:
+            # 円のアニメーション
             animate_circles(server)
     except KeyboardInterrupt:
+        # 終了 (円の削除)
         clear_screen()
         command = {"type": "clear"}
         server.broadcast(command)
