@@ -1,5 +1,6 @@
 import pigpio  # GPIO制御
 from time import sleep
+import datetime
 import math  # 極座標変換
 import VL53L0X  # ToFセンサ
 import random
@@ -8,6 +9,12 @@ import sys
 import spidev
 import subprocess
 import os
+import socket
+import json
+
+# 通信関連の設定
+MASTER_IP = "192.168.10.59"  # マスターのIPアドレスを実際の値に変更
+MASTER_PORT = 5000
 
 # SPIバスを開く
 spi = spidev.SpiDev()
@@ -54,6 +61,86 @@ LED_INVERT = False
 LED_CHANNEL = 0
 
 
+def get_device_id():
+    # Raspberry Piのシリアル番号を取得してデバイスIDとして使用
+    try:
+        with open('/proc/cpuinfo', 'r') as f:
+            for line in f:
+                if line.startswith('Serial'):
+                    return line.split(':')[1].strip()
+    except:
+        # シリアル番号が取得できない場合はホスト名を使用
+        return subprocess.check_output(['hostname']).decode().strip()
+
+
+def setup_socket():
+    device_id = get_device_id()
+    max_retries = 5
+    retry_delay = 3
+
+    for attempt in range(max_retries):
+        try:
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.settimeout(10)
+            print(f"Attempting to connect to master at {MASTER_IP}:{MASTER_PORT} (attempt {attempt + 1})")
+            client_socket.connect((MASTER_IP, MASTER_PORT))
+
+            # デバイスIDを送信
+            init_data = {
+                "type": "init",
+                "device_id": device_id
+            }
+            client_socket.send(json.dumps(init_data).encode())
+
+            client_socket.settimeout(None)
+            print(f"Successfully connected to master with device ID: {device_id}")
+            return client_socket, device_id
+
+        except socket.timeout:
+            print(f"Connection attempt {attempt + 1} timed out")
+        except ConnectionRefusedError:
+            print(f"Connection refused - is the master running? (attempt {attempt + 1})")
+        except Exception as e:
+            print(f"Connection attempt {attempt + 1} failed: {e}")
+
+        if attempt < max_retries - 1:
+            sleep(retry_delay)
+            print(f"Retrying in {retry_delay} seconds...")
+
+    return None, None
+
+
+def send_sensor_data(socket, device_id, target_x, target_y, data_total):
+    try:
+        data = {
+            "type": "sensor_data",
+            "device_id": device_id,
+            "position": {
+                "x": target_x,
+                "y": target_y
+            },
+            "pressure": data_total
+        }
+        json_data = json.dumps(data).encode()
+        dt_now = datetime.datetime.now()
+        print(dt_now)
+        socket.send(json_data)
+        return socket
+    except socket.error:
+        # 接続が切れた場合は再接続を試みる
+        print("Connection lost. Attempting to reconnect...")
+        new_socket, new_device_id = setup_socket()
+        if new_socket:
+            print("Reconnected successfully")
+            return new_socket
+        else:
+            print("Failed to reconnect")
+            return None
+    except Exception as e:
+        print(f"Error sending data: {e}")
+        return socket
+
+
 # MCP3008から値を読み取るメソッド
 # チャンネル番号は0から7まで
 def ReadChannel(channel):
@@ -91,7 +178,6 @@ def getXY(r, degree):
     rad = math.radians(degree)
     x = r * math.cos(rad)
     y = r * math.sin(rad)
-    # print(x, y)
     return x, y
 
 
@@ -120,7 +206,6 @@ def servo_tof_test(timing):
     for i in range(0, 90, DEGREE_CYCLE):  # 0~90度で増加量はDEGREE_CYCLE
         valInit.SvDeg = i
         set_angle(valInit.SvDeg)  # サーボを回転
-        # print(valInit.SvDeg)
 
         # ToFセンサで測距
         distance = tof.get_distance()
@@ -136,11 +221,6 @@ def servo_tof_test(timing):
 
 # 位置特定
 def find_pos(timing):
-    # 極座標の特定(角度, 距離)
-    # 極座標変換(x, y)および範囲内かどうか
-    # 範囲内の最初と最後のx,yを配列に入れる
-    # 配列から範囲内に最初になった座標と最後に範囲内になった座標の中心(物体の中心座標)を返す
-
     # サーボを0度に設定
     valInit.SvDeg = 0
     set_angle(valInit.SvDeg)
@@ -149,15 +229,12 @@ def find_pos(timing):
 
     # 配列の初期化
     pointlist = []
-
     flag = False
-
     count = 0
 
     for i in range(0, 91, DEGREE_CYCLE):  # 0~90度で増加量はDEGREE_CYCLE
         valInit.SvDeg = i
         set_angle(valInit.SvDeg)  # サーボを回転
-        # print(valInit.SvDeg)
 
         # ToFセンサで測距
         distance = tof.get_distance()
@@ -197,7 +274,6 @@ def find_pos(timing):
 
     # 余分に記録した末尾5個のリストを削除
     del pointlist[-5:]
-    # print(pointlist)
 
     # もしリストが入ってなかったら
     if len(pointlist) == 0:
@@ -212,7 +288,6 @@ def find_pos(timing):
 
 
 # Led matrix
-
 # Define zigzag matrix
 def zigzag_matrix(x, y):
     if y % 2 == 0:  # Even rows
@@ -229,10 +304,9 @@ def clear_matrix(strip):
 
 
 # Update positions of multiple points simultaneously
-def update_positions(points, target_x, target_y, strip, speed=0.05):
+def update_positions(points, target_x, target_y, strip, speed):
     while points:
         # Update each point's position
-        # すべての点が目的地に着くまで繰り返す
         for point in points[:]:
             x, y, color = point
             # Clear current position
@@ -241,26 +315,31 @@ def update_positions(points, target_x, target_y, strip, speed=0.05):
             # Calculate direction to target
             dx = target_x - x
             dy = target_y - y
-            if dx < 0 and dy < 0:
-                # Point has reached the target
+
+            if abs(dx) < 1 and abs(dy) < 1:
                 points.remove(point)
-            elif abs(dx) > abs(dy):
-                x += 1 if dx > 0 else -1
             else:
-                y += 1 if dy > 0 else -1
+                if abs(dx) > abs(dy):
+                    x += 1 if dx > 0 else -1
+                else:
+                    y += 1 if dy > 0 else -1
+                strip.setPixelColor(zigzag_matrix(x, y), color)
+                points[points.index(point)] = (x, y, color)
 
-            # Draw new position
-            strip.setPixelColor(zigzag_matrix(x, y), color)
-            # Update the point in the list
-            points[points.index(point)] = (x, y, color)
-
-        # Show updated positions
         strip.show()
         sleep(speed)
 
 
 def main():
     valInit()  # 変数の初期化
+
+    # ソケット接続のセットアップ
+    while True:
+        client_socket, device_id = setup_socket()
+        if client_socket is None:
+            print("Failed to setup socket connection. Exiting...")
+            continue
+        break
 
     # ToF起動
     tof.start_ranging(VL53L0X.VL53L0X_BETTER_ACCURACY_MODE)
@@ -278,80 +357,81 @@ def main():
 
     cnt = 0
 
-    music = None    # mp3ファイル
-
     try:
         while True:
-            # 圧力センサで重さ測定
+            # 4つの圧力センサで重さ測定
             while True:
-                data = ReadChannel(force_channel)
-                print("A/D Converter: {0}".format(data))
-                volts = ConvertVolts(data, 3)
-                print("Volts: {0}".format(volts))
+                # 圧力の合計データの初期化
+                data_total = 0
+                # ４箇所の圧力を測定
+                for i in range(4):
+                    # センサのチャンネルの切り替え
+                    data = ReadChannel(i)
+                    data_total += data
+                    print("channel: %d" % (i))
+                    print("A/D Converter: {0}".format(data))
+                    volts = ConvertVolts(data, 3)
+                    print("Volts: {0}".format(volts))
+                data_total = 2500  # デバック用圧力合計値
+                print("Data total: {0}\n".format(data_total))
                 # 一定以下の圧力になったら抜ける
-                if volts <= 4:
-                    # 音を鳴らす
-                    if volts < 8:
-                        music = 'sample1.mp3'
-                    elif 8 <= volts < 16:
-                        music = 'sample2.mp3'
-                    else :
-                        music = None
-                    break
+                if data_total <= 3600:
+                    if data_total < 1800:
+                        MP3_PATH = 'sample1.mp3'
+                    else:
+                        MP3_PATH = 'sample2.mp3'
+                        break
                 sleep(1)
-
-                if music:
-                    subprocess.Popen(['mpg321',music])
-                    sleep(0.5)
 
             # ToFセンサとサーボで物体の位置特定
             print("find position of object:%d" % (cnt + 1))
             target_x, target_y = find_pos(timing)
             print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-            target_x /= 10 # mmからcmに変換
-            target_y /= 10 # mmからcmに変換
 
-            # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+            # センサーデータの送信とソケット管理
+            if client_socket:
+                client_socket = send_sensor_data(client_socket, device_id, target_x, target_y, data_total)
+                if client_socket is None:
+                    print("Lost connection to master. Exiting...")
+                    break
+
+            target_x /= 10  # mmからcmに変換
+            target_y /= 10  # mmからcmに変換
+
+            print(f"Target position: ({target_x}, {target_y})")
 
             # LEDマトリックス
-            # Generate multiple random starting points and their colors
             points = []
-            generated_points = random.randint(4,volts * 2)  # 点の数を決める
-            for _ in range(generated_points):  # Number of points
+            # 圧力の値から生成する点の数を設定
+            generated_points = int((10000 - data_total) / 700)
+            print("generated points: %d\n" % (generated_points))
+            for _ in range(generated_points):
                 x = random.randint(0, MATRIX_WIDTH - 1)
                 y = random.randint(0, MATRIX_HEIGHT - 1)
                 color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
                 points.append((x, y, color))
 
-            print(f"Target position: ({target_x}, {target_y})")
+            print("update position start")
+            update_positions(points, target_x, target_y, strip, speed=0.1)
+            print("update position end")
 
-            # Move all points toward the target simultaneously
-            update_positions(points, target_x, target_y, strip, speed=0.05)
-
-            # Pause before resetting
             sleep(2)
-
-            # Clear the matrix
             clear_matrix(strip)
 
     except KeyboardInterrupt:
-        # 圧力センサに関するものを閉じる
+        if client_socket:
+            client_socket.close()
         spi.close()
-        sys.exit(0)
-        # ToFストップ
         tof.stop_ranging()
-        # Clear on exit
         clear_matrix(strip)
+        sys.exit(0)
 
-    # 圧力センサに関するものを閉じる
+    if client_socket:
+        client_socket.close()
     spi.close()
-    sys.exit(0)
-    # ToFストップ
     tof.stop_ranging()
-    # Clear on exit
     clear_matrix(strip)
-
-    return
+    sys.exit(0)
 
 
 if __name__ == "__main__":
