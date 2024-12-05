@@ -12,7 +12,9 @@ import spidev
 import subprocess
 import os
 
-""" スレーブ設定 """
+from sympy.codegen.ast import continue_
+
+""" 圧力センサ設定 """
 # SPIバスを開く
 spi = spidev.SpiDev()
 spi.open(0, 0)
@@ -20,6 +22,7 @@ spi.max_speed_hz = 1000000
 # 圧力センサのチャンネルの宣言
 force_channel = 0
 
+""" サーボモータとToFセンサの設定 """
 # 周期ごとの度数
 DEGREE_CYCLE = 1
 # ディスプレイの大きさ(mm)
@@ -44,6 +47,11 @@ pi = pigpio.pi()
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
 
+""" 通信設定 """
+# マスター設定
+MASTER_IP = "192.168.10.65"     # マスターのIPアドレス
+MASTER_PORT = 5000              # マスターのポート
+
 """ LED設定 """
 LED_COUNT = 256  # 16x16
 LED_PIN = 18
@@ -56,16 +64,12 @@ LED_INVERT = False
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
-# マスター設定
-MASTER_IP = "192.168.10.65"
-MASTER_PORT = 5000
-
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
 SLAVE_COLS = 1  # 縦方向
 LED_PER_PANEL = 16  # 列ごとのLED数 (16)
 
-# スレーブ1の担当領域
+# スレーブの担当領域 (各スレーブごとに設定する)
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット (16~)
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット (0~)
 
@@ -237,12 +241,11 @@ def zigzag_transform(x, y, width=16):
 
 def set_pixel_local(x, y, color):
     """ローカル座標でピクセルに色を設定する。"""
-
     index = y * 16 + x
     strip.setPixelColor(index, Color(color[0], color[1], color[2]))
 
 
-def handle_command(command):
+def handle_command(command, client_socket, client_id):
     # 受信したコマンドに応じて描画処理を実行する
     if command["type"] == "draw":
         for global_x, global_y in command["coordinates"]:
@@ -260,6 +263,23 @@ def handle_command(command):
                 print(f"ジグザグ変換: ({local_x}, {local_y})")
                 set_pixel_local(local_x, local_y, command["color"])
         strip.show()
+
+    # センサ情報送信
+    elif command["type"] == "request_data":
+        # センサーデータの送信とソケット管理
+        target_x, target_y = deal_sensor()
+        if client_socket:
+            sensor_data = {
+                "type": "sensor_data",
+                "client_id": client_id,
+                "position": {"row": SLAVE_ROWS, "column": SLAVE_COLS},
+                "data": {
+                    "x": target_x,
+                    "y": target_y
+                }
+            }
+        send_to_master(client_socket, sensor_data)
+
     elif command["type"] == "clear":
         clear_screen()
 
@@ -278,7 +298,19 @@ def get_client_id():
 
 
 def listen_for_master_data(client_socket):
-    """マスターからのデータを受信"""
+    """スレーブをマスターと接続"""
+    client_id = get_client_id()
+    if client_id is None:
+        print("Falied to setup socket connection.")
+
+    # 接続時に初期データを送信
+    init_data = {
+        "type": "init",
+        "client_id": client_id,
+        "position": {"row": SLAVE_ROWS, "column": SLAVE_COLS}
+    }
+
+    # マスターからのデータを受信
     try:
         while True:
             data = client_socket.recv(1024)
@@ -288,6 +320,93 @@ def listen_for_master_data(client_socket):
                 received_data = json.loads(data.decode())
                 print(f"Received from master: {received_data}")
                 # 受信できたらデータの処理をする
+                handle_command(received_data,client_socket,client_id)
+            except json.JSONDecodeError:
+                print("Failed to decode data from master")
+    except Exception as e:
+        print(f"Error receiving from master: {e}")
+    finally:
+        client_socket.close()
+
+
+def deal_sensor():
+    timing = tof.get_timing()
+    if (timing < 20000):
+        timing = 20000
+    print("Timing %d ms" % (timing / 1000))
+    cnt = 0
+
+    # 4つの圧力センサで重さ測定
+    while True:
+        # 圧力の合計データの初期化
+        data_total = 0
+        # ４箇所の圧力を測定
+        for i in range(4):
+            # センサのチャンネルの切り替え
+            data = ReadChannel(i)
+            data_total += data
+            print("channel: %d" % (i))
+            print("A/D Converter: {0}".format(data))
+            volts = ConvertVolts(data, 3)
+            print("Volts: {0}".format(volts))
+        data_total = 2500  # デバック用圧力合計値
+        print("Data total: {0}\n".format(data_total))
+        # 一定以下の圧力になったら抜ける
+        if data_total <= 3600:
+            if data_total < 1800:
+                MP3_PATH = 'sample1.mp3'
+            else:
+                MP3_PATH = 'sample2.mp3'
+                break
+        time.sleep(1)
+
+    # ToFセンサとサーボで物体の位置特定
+    print("find position of object:%d" % (cnt + 1))
+    target_x, target_y = find_pos(timing)
+    print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+
+    target_x /= 10  # mmからcmに変換
+    target_y /= 10  # mmからcmに変換
+    print(f"Target position: ({target_x}, {target_y})")
+    return target_x, target_y
+
+    # 任意のデータを送信する例
+    # while True:
+    #     sensor_data = {
+    #         "type": "sensor_data",
+    #         "client_id": client_id,
+    #         "position": {"row": row, "column": column},
+    #         "data": {
+    #             "x": 0,
+    #             "y": 0
+    #         }
+    #     }
+    #     send_to_master(client_socket, sensor_data)
+    #     time.sleep(5)r(client_socket, init_data)
+
+
+"""
+def listen_for_master_data(client_socket):
+    try:
+        while True:
+            data = client_socket.recv(1024)
+            if not data:
+                break
+            try:
+                received_data = json.loads(data.decode())
+                print(f"Received from master: {received_data}")
+
+                if received_data["type"] == "request_data":
+                    # センサーデータを送信
+                    target_x, target_y = find_pos(timing)
+                    sensor_data = {
+                        "type": "sensor_data",
+                        "client_id": get_client_id(),
+                        "position": {"row": SLAVE_ROWS, "column": SLAVE_COLS},
+                        "data": {"x": target_x, "y": target_y}
+                    }
+                    send_to_master(client_socket, sensor_data)
+
                 handle_command(received_data)
             except json.JSONDecodeError:
                 print("Failed to decode data from master")
@@ -295,6 +414,7 @@ def listen_for_master_data(client_socket):
         print(f"Error receiving from master: {e}")
     finally:
         client_socket.close()
+"""
 
 
 def send_to_master(client_socket, data: dict):
@@ -335,50 +455,36 @@ def start_local_server(port=12345):
     server_thread.start()
 
 
-""" データ送信 """
-def setup_slave(master_ip, master_port, row, column):
-    """スレーブをマスターと接続"""
-    client_id = get_client_id()
+""" データ送信とセンサ起動 """
+def setup_slave(master_ip, master_port):
+    # Tof起動
+    tof.start_ranging(VL53L0X.VL53L0X_BETTER_ACCURACY_MODE)
 
+    # マスターからのデータを受信するスレッドを開始
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((master_ip, master_port))
         print(f"Connected to master at {master_ip}:{master_port}")
 
-        # 接続時に初期データを送信
-        init_data = {
-            "type": "init",
-            "client_id": client_id,
-            "position": {"row": row, "column": column}
-        }
-        send_to_master(client_socket, init_data)
-
-        # マスターからのデータを受信するスレッドを開始
         listener_thread = threading.Thread(target=listen_for_master_data, args=(client_socket,))
         listener_thread.daemon = True
         listener_thread.start()
-
-        # 任意のデータを送信する例
-        while True:
-            sensor_data = {
-                "type": "sensor_data",
-                "client_id": client_id,
-                "position": {"row": row, "column": column},
-                "data": {"temperature": 25, "humidity": 60}
-            }
-            send_to_master(client_socket, sensor_data)
-            time.sleep(5)
 
     except Exception as e:
         print(f"Error setting up slave: {e}")
     except KeyboardInterrupt:
         print(f"Keyboard Interrupt")
     finally:
+        # 終了
+        spi.close()
+        tof.stop_ranging()
         clear_screen()
         client_socket.close()
+        sys.exit(0)
 
 
 if __name__ == '__main__':
+    valInit()   # 変数の初期化
     clear_screen()  # 初期化で消灯
     start_local_server(port=12345)  # ローカルサーバーを開始
-    setup_slave(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)  # マスターに接続
+    setup_slave(MASTER_IP, MASTER_PORT)  # マスターに接続

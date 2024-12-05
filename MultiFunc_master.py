@@ -182,14 +182,64 @@ def draw_frame(frame_pixels, color, collision_pixels=None, mix_color=None):
 
 
 def animate_circles(server):
-    # max_radius = min(MATRIX_GLOBAL_WIDTH, MATRIX_GLOBAL_HEIGHT) // 2
-    max_radius = 15
+    max_radius = min(MATRIX_GLOBAL_WIDTH, MATRIX_GLOBAL_HEIGHT) // 2
+    # max_radius = 15
 
+    # スレーブからのセンサの値(x,y)を受信
+    slave_data = []
+    for position, client_socket in server.clients.items():
+        try:
+            # データをリクエスト
+            request_data = {"type": "request_data"}
+            client_socket.send(json.dumps(request_data).encode())
+            data = client_socket.recv(1024)
+            if data:
+                received_data = json.loads(data.decode())
+                if received_data["type"] == "sensor_data":
+                    slave_data.append(received_data)
+        except Exception as e:
+            print(f"Error communicating with slave {position}: {e}")
+
+        # スレーブデータを近い順にソートする
+        slave_data.sort(key=lambda d: d["data"]["x"] ** 2 + d["data"]["y"] ** 2)
+
+        # 最も近いスレーブがcircle1、遠いスレーブがcircle2を担当
+        if len(slave_data) >= 2:
+            circle1_data = slave_data[0]
+            circle2_data = slave_data[-1]
+
+            xc1, yc1 = int(circle1_data["data"]["x"]), int(circle1_data["data"]["y"])
+            xc2, yc2 = int(circle2_data["data"]["x"]), int(circle2_data["data"]["y"])
+
+            color1 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+            color2 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+
+            for radius in range(max_radius):
+                circle1 = circle_pixels(xc1, yc1, radius)
+                circle2 = circle_pixels(xc2, yc2, radius)
+
+                collision = set(circle1) & set(circle2)
+                mix_color = [
+                    (color1[0] + color2[0]) // 2,
+                    (color1[1] + color2[1]) // 2,
+                    (color1[2] + color2[2]) // 2
+                ] if collision else None
+
+                slave_pixels1, color1 = draw_frame(circle1, color1, collision, mix_color)
+                slave_pixels2, color2 = draw_frame(circle2, color2, collision, mix_color)
+
+                if len(slave_pixels1):
+                    command = {"type": "draw", "coordinates": slave_pixels1, "color": color1}
+                    server.broadcast(command)
+                if len(slave_pixels2):
+                    command = {"type": "draw", "coordinates": slave_pixels2, "color": color2}
+                    server.broadcast(command)
+                time.sleep(0.1)
+
+    """
     # 円の中心を指定
-    # xc1, yc1 = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
-    # xc2, yc2 = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
-    xc1, yc1 = 15, 1
-    xc2, yc2 = 18, 1
+    xc1, yc1 = 15, 1    # スレーブからのセンサの値を取得したもの
+    xc2, yc2 = 18, 1    # スレーブからのセンサの値を取得したもの
 
     # 色の指定
     color1 = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
@@ -219,6 +269,7 @@ def animate_circles(server):
             command = {"type": "draw", "coordinates": slave_pixels2, "color": color2}
             server.broadcast(command)
         time.sleep(0.1)
+    """
 
     # 消す
     for radius in range(max_radius):
@@ -233,6 +284,7 @@ def animate_circles(server):
             command = {"type": "draw", "coordinates": slave_pixels2, "color": color2}
             server.broadcast(command)
         time.sleep(0.1)
+
     return server
 
 
