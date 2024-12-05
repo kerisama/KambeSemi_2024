@@ -155,8 +155,8 @@ def circle_pixels(xc, yc, radius):
     return pixels
 
 
-def draw_frame(frame_pixels, color):
-    # Draw a single frame of animation.
+def draw_frame(frame_pixels, color, collision_pixels=None, mix_color=None):
+    # アニメーション描画
     # マスターの範囲内ならmaster_pixelsに、それ以外はslave_pixelsにする
     master_pixels = [p for p in frame_pixels if p[0] < LED_PER_PANEL and p[1] < LED_PER_PANEL]
     slave_pixels = [p for p in frame_pixels if p[0] >= LED_PER_PANEL or p[1] >= LED_PER_PANEL]
@@ -165,7 +165,14 @@ def draw_frame(frame_pixels, color):
     for x, y in master_pixels:
         zigzag_x, zigzag_y = zigzag_transform(x, y)
         index = zigzag_y * LED_PER_PANEL + zigzag_x
-        strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+
+        # 円がぶつかったところの描画
+        if collision_pixels and (x, y) in collision_pixels:
+            # 混ざった色を描画する
+            strip.setPixelColor(index,Color(mix_color[0], mix_color[1], mix_color[2]))
+        else:   # ぶつかっていないところの描画
+            strip.setPixelColor(index,Color(color[0],color[1],color[2]))
+
     strip.show()
 
     # print(f"Master: {master_pixels}")
@@ -195,15 +202,14 @@ def animate_circles(server):
 
         # 衝突処理
         collision = set(circle1) & set(circle2)
-        if collision:
-            mix_color = [
-                (color1[0] + color2[0]) // 2,
-                (color1[1] + color2[1]) // 2,
-                (color1[2] + color2[2]) // 2
-            ]
+        mix_color = [
+            (color1[0] + color2[0]) // 2,
+            (color1[1] + color2[1]) // 2,
+            (color1[2] + color2[2]) // 2
+        ] if collision else None
 
-        slave_pixels1, color1 = draw_frame(circle1, color1)
-        slave_pixels2, color2 = draw_frame(circle2, color2)
+        slave_pixels1, color1 = draw_frame(circle1, color1,collision, mix_color)
+        slave_pixels2, color2 = draw_frame(circle2, color2,collision, mix_color)
         # スレーブに送信
         # slave_pixelsがあれば全スレーブに送信(broadcast)
         if len(slave_pixels1):  # 円1の描画
