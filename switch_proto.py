@@ -17,7 +17,7 @@ GPIO.setup(BUTTON_PIN, GPIO.IN,pull_up_down=GPIO.PUD_UP)
 toggle_state = 0
 
 """ マスターとスレーブの判別 (0をマスター、1をスレーブとする) """
-Pi_status = 0
+Pi_status = 1
 
 
 """ スレッドの管理 """
@@ -31,7 +31,25 @@ threads = {
 """ 終了 """
 def quitting():
     print("Shutting down...")
+    GPIO.cleanup()
     os.system("sudo shutdown now")
+
+""" Stop All Threads """
+def stop_all_threads():
+    for name, thread in threads.items():
+        if thread is not None and thread.is_alive():
+            if name == "a":
+                a.stop()
+            elif name == "b":
+                b.stop()
+            elif name == "c":
+                c.stop()
+            thread.join()
+            print(f"{name.capitalize()} Function Stopped")
+            quitting()
+        for key in threads.keys():
+            threads[key] = None
+
 
 
 def start_thread(name,target):
@@ -47,11 +65,11 @@ def start_thread(name,target):
 def stop_thread(name):
     """ スレッドの停止 """
     if threads[name] is not None and threads[name].is_alive():
-        if name == "single":
+        if name == "a":
             a.stop()
-        elif name == "master":
+        elif name == "b":
             b.stop()
-        elif name == "slave":
+        elif name == "c":
             c.stop()
         threads[name].join()
         print(f"{name.capitalize()} Function Stopped.")
@@ -62,20 +80,28 @@ def main():
     print("Press Ctrl-C to quit...")
 
     # 初期状態で単体機能開始
-    start_thread("a",single.run)
+    start_thread("a",a.run)
 
     # ボタンのループ
     while True:
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
             start_time = time.time()    # 押し始めた時間を記録
+            print("Button pressed")
 
             # ボタンを押している間の監視
             while GPIO.input(BUTTON_PIN) == GPIO.LOW:
                 pass    # ボタンが押されている間ループ
 
             press_duration = time.time() - start_time   # 押していた時間を記録
+            # print(f"Pressed: {press_duration}")
 
-            if press_duration >= 3:
+            if press_duration >= 5:
+                print("Button pressed 5 sec.")
+                stop_all_threads()      # 5秒以上押すとシャットダウン
+                quitting()
+
+            elif press_duration >= 3:
+                print("Button pressed 3 sec.")
                 # 3秒以上で複数機能
                 if Pi_status == 0:     # マスター
                     stop_thread("a")
@@ -85,13 +111,12 @@ def main():
                     start_thread("c",c.run)
 
             elif press_duration >= 1:
+                print("Button pressed 1 sec.")
                 # 1秒以上で単体に戻す
                 stop_thread("b")
                 stop_thread("c")
                 start_thread("a",a.run)
 
-            elif press_duration >= 5:
-                quitting()      # 5秒以上押すとシャットダウン
 
 
 if __name__ == "__main__":
