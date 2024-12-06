@@ -14,7 +14,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN,pull_up_down=GPIO.PUD_UP)
 
 """ トグル用フラグ """
-toggle_state = 0
+# toggle_state = 0
 
 """ マスターとスレーブの判別 (0をマスター、1をスレーブとする) """
 Pi_status = 0
@@ -30,6 +30,7 @@ threads = {
 
 """ 終了 """
 def quitting():
+    stop_thread()
     print("Shutting down...")
     os.system("sudo shutdown now")
 
@@ -44,17 +45,19 @@ def start_thread(name,target):
         print(f"{name.capitalize()} Function already Running.")
 
 
-def stop_thread(name):
-    """ スレッドの停止 """
-    if threads[name] is not None and threads[name].is_alive():
-        if name == "single":
-            single.stop()
-        elif name == "master":
-            m_master.stop()
-        elif name == "slave":
-            m_slave.stop()
-        threads[name].join()
-        print(f"{name.capitalize()} Function Stopped.")
+def stop_thread():
+    for name, thread in threads.items():
+        if thread is not None and thread.is_alive():
+            if name == "single":
+                single.stop()
+            elif name == "master":
+                m_master.stop()
+            elif name == "slave":
+                m_slave.stop()
+            thread.join()
+            print(f"{name.capitalize()} Function Stopped")
+    for key in threads.keys():
+        threads[key] = None
 
 
 def main():
@@ -75,26 +78,24 @@ def main():
 
             press_duration = time.time() - start_time   # 押していた時間を記録
 
-            if press_duration >= 3:
+            if press_duration >= 5:
+                quitting()      # 5秒以上押すとシャットダウン
+
+            elif press_duration >= 3:
                 # 3秒以上で複数機能
                 if Pi_status == 0:     # マスター
-                    stop_thread("single")
+                    stop_thread()
                     start_thread("master",m_master.run)
                 else:   # スレーブ
-                    stop_thread("single")
+                    stop_thread()
                     start_thread("slave",m_slave.run)
 
             elif press_duration >= 1:
                 # 1秒以上で単体に戻す
-                stop_thread("master")
-                stop_thread("slave")
+                stop_thread()
+                stop_thread()
                 start_thread("single",single.run)
 
-            elif press_duration >= 5:
-                quitting()      # 5秒以上押すとシャットダウン
-
-            # elif press_duration >= 1:
-            #     singlefunc()
 
 if __name__ == "__main__":
     try:
