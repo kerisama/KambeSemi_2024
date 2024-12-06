@@ -520,7 +520,7 @@ def find_pos(timing):
     return res_x, res_y
 
 
-if __name__ == '__main__':
+def main():
     # 通信設定
     clear_screen()
     server = MultiClientServer()
@@ -541,3 +541,6 @@ if __name__ == '__main__':
             server.shutdown(server.server_socket)
         else:
             print("Server socket not found.")
+
+if __name__ == "__main__":
+    main()

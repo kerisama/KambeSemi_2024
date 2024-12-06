@@ -483,8 +483,11 @@ def setup_slave(master_ip, master_port):
         sys.exit(0)
 
 
-if __name__ == '__main__':
+def main():
     valInit()   # 変数の初期化
     clear_screen()  # 初期化で消灯
     start_local_server(port=12345)  # ローカルサーバーを開始
     setup_slave(MASTER_IP, MASTER_PORT)  # マスターに接続
+
+if __name__ == "__main__":
+    main()
