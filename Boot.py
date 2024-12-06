@@ -4,17 +4,27 @@ import singlecomplete3 as single        # 単体機能
 import MultiFunc_master as m_master     # 複数機能 (マスター)
 import MultiFunc_slave as m_slave       # 複数機能 (スレーブ)
 
+
 """ 単体機能 """
 def singlefunc():
     single.main()
+
 
 """ 複数機能 (マスター) """
 def multifunc_master():
     m_master.main()
 
+
 """ 複数機能 (スレーブ) """
 def multifunc_slave():
     m_slave.main()
+
+
+""" 終了 """
+def quitting():
+    print("Shutting down...")
+    os.system("sudo shutdown now")
+
 
 def main():
     # ボタンの機能をここに
