@@ -1,12 +1,12 @@
 import time
 
-class C:
+class D:
     def __init__(self):
         self.running = True
 
     def main(self):
         time.sleep(1)
-        print("C is running...")
+        print("D is running...")
 
     def run(self):
         self.running = True
@@ -15,4 +15,4 @@ class C:
 
     def stop(self):
         self.running = False
-        print("C is stopping...")
+        print("D is stopping...")

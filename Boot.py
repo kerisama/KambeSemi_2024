@@ -7,6 +7,7 @@ import singlecomplete3 as single        # 単体機能
 import MultiFunc_master as m_master     # 複数機能 (マスター)
 import MultiFunc_slave as m_slave       # 複数機能 (スレーブ)
 
+from KambeSemi_2024.switch_pygame1 import stop_thread
 
 """ ボタンのGPIO設定 """
 BUTTON_PIN = 3
@@ -27,6 +28,12 @@ threads = {
     "slave": None,
 }
 
+instances = {
+    "single": None,
+    "master": None,
+    "slave": None,
+}
+
 
 """ 終了 """
 def quitting():
@@ -35,29 +42,25 @@ def quitting():
     os.system("sudo shutdown now")
 
 
-def start_thread(name,target):
-    """ スレッドの開始 or 再起動 """
+""" スレッドの停止 """
+def stop_all_threads():
+    for name, thread in threads.items():
+        if thread is not None and thread.is_alive():
+            instances[name].stop()
+            thread.join()
+            print(f"{name.capitalize()} Function Stopped")
+        threads[name] = None
+        instances[name] = None
+
+def start_thread(name, cls):
+    """ スレッドの開始または再起動 """
     if threads[name] is None or not threads[name].is_alive():
-        threads[name] = threading.Thread(target=target,daemon=True)
+        instances[name] = cls()
+        threads[name] = threading.Thread(target=instances[name].run, daemon=True)
         threads[name].start()
         print(f"{name.capitalize()} Function Started!")
     else:
         print(f"{name.capitalize()} Function already Running.")
-
-
-def stop_thread():
-    for name, thread in threads.items():
-        if thread is not None and thread.is_alive():
-            if name == "single":
-                single.stop()
-            elif name == "master":
-                m_master.stop()
-            elif name == "slave":
-                m_slave.stop()
-            thread.join()
-            print(f"{name.capitalize()} Function Stopped")
-    for key in threads.keys():
-        threads[key] = None
 
 
 def main():
@@ -84,16 +87,15 @@ def main():
             elif press_duration >= 3:
                 # 3秒以上で複数機能
                 if Pi_status == 0:     # マスター
-                    stop_thread()
+                    stop_all_threads()
                     start_thread("master",m_master.run)
                 else:   # スレーブ
-                    stop_thread()
+                    stop_all_threads()
                     start_thread("slave",m_slave.run)
 
             elif press_duration >= 1:
                 # 1秒以上で単体に戻す
-                stop_thread()
-                stop_thread()
+                stop_all_threads()
                 start_thread("single",single.run)
 
 

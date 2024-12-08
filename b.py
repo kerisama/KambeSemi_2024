@@ -1,21 +1,18 @@
 import time
 
-running = True
+class B:
+    def __init__(self):
+        self.running = True
 
-def main():
-    time.sleep(1)
-    print("B")
+    def main(self):
+        time.sleep(1)
+        print("B is running...")
 
-def run():
-    global running
-    running = True
-    while running:
-        main()
+    def run(self):
+        self.running = True
+        while self.running:
+            self.main()
 
-def stop():
-    global running
-    running = False
-    print("Quitting...")
-
-if __name__ == "__main__":
-    main()
+    def stop(self):
+        self.running = False
+        print("B is stopping...")
