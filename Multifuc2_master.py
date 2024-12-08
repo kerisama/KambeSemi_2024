@@ -320,7 +320,10 @@ def update_positions(points, target_x, target_y, strip, speed):
         for point in points[:]:
             x, y, color = point
             # Clear current position
-            strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
+            zigzag_x, zigzag_y = zigzag_transform(x, y)     # 12/08 尾崎
+            index = zigzag_y * LED_PER_PANEL + zigzag_x     # 12/08 尾崎
+            strip.setPixelColor(index, Color(0, 0, 0))      # 12/08 尾崎
+            # strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
 
             # Calculate direction to target
             dx = target_x - x
@@ -510,7 +513,8 @@ def single_function():
 
     time.sleep(1)
     # Clear the matrix
-    clear_matrix(strip)
+    # clear_matrix(strip)
+    clear_screen()  # 12/08 尾崎
 
 
 
