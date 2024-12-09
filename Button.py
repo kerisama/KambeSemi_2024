@@ -1,5 +1,6 @@
 import threading
 import time
+import os
 import RPi.GPIO as GPIO
 
 """ ボタンのGPIO設定 """
@@ -59,6 +60,14 @@ class func_c:
         self.running = False
         print("Stopping C")
 
+
+def shutdown():
+    stop_current_thread()
+    GPIO.cleanup()
+    print("Shutting down")
+    os.system("sudo shutdown -h now")
+
+
 def stop_current_thread():
     global current_thread
     if current_thread is not None:
@@ -96,7 +105,7 @@ def monitor_button():
             elif press_duration >= 3:  # 3秒以上
                 print("Switching to Function C")
                 start_new_thread(func_c)
-            elif press_duration < 3:  # 3秒未満
+            elif press_duration >= 1:  # 3秒未満(1秒以上)
                 print("Switching to Function B")
                 start_new_thread(func_b)
 
