@@ -59,7 +59,7 @@ LED_PER_PANEL = 16
 LED_CHANNEL = 0
 
 # Matrix setup
-MATRIX_ROWS = 2  # Number of horizontal panels
+MATRIX_ROWS = 1  # Number of horizontal panels
 MATRIX_COLS = 2  # Number of vertical panels
 MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
@@ -82,7 +82,7 @@ class MultiClientServer:
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
         server_socket.listen(5)
-        print(f"Master server listening on port {self.port}")
+        print(f"Master server listening on port {self.port}\n")
 
         try:
             while True:
@@ -551,7 +551,7 @@ def multi_function():
             animation_threads.append(animation_thread)
             animation_thread.start()
             print(count)
-            time.sleep(1)
+            time.sleep(3)
         # アニメーションスレッドが全部終わるまで待つ
         """
         for thread in animation_threads:
