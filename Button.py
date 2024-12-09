@@ -1,100 +1,73 @@
-import RPi.GPIO as GPIO
-import time
-import os
 import threading
+import time
+import RPi.GPIO as GPIO
 
 """ ボタンのGPIO設定 """
 BUTTON_PIN = 3
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # PUD_UPの場合
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-""" トグル用フラグ """
-toggle_state = 0
+""" スレッド管理用変数 """
+current_thread = None
+stop_event = threading.Event()
 
-# スレッド定義
-threads = {
-    "a": None,
-    "b": None,
-    "c": None,
-}
+class ManagedThread:
+    def __init__(self, target):
+        self.target = target
+        self.thread = None
 
-
-# クラス
-class FuncA:
-    def __init__(self):
-        self.running = True
-        threading.Thread(target=self.run, daemon=True).start()
-
-    def run(self):
-        while self.running:
-            print("Running A")
-            time.sleep(1)
+    def start(self):
+        global stop_event
+        stop_event.clear()
+        self.thread = threading.Thread(target=self.target, daemon=True)
+        self.thread.start()
 
     def stop(self):
-        self.running = False
-        print("Stopping A")
+        global stop_event
+        stop_event.set()
+        if self.thread is not None:
+            self.thread.join()
 
+# 各スレッドの処理
+def func_a():
+    global stop_event
+    print("Starting A")
+    while not stop_event.is_set():
+        print("Running A")
+        time.sleep(1)
+    print("Stopping A")
 
-class FuncB:
-    def __init__(self):
-        self.running = True
-        threading.Thread(target=self.run, daemon=True).start()
-
-    def run(self):
-        while self.running:
-            print("Running B")
-            time.sleep(1)
-
-    def stop(self):
-        self.running = False
-        print("Stopping B")
-
+def func_b():
+    global stop_event
+    print("Starting B")
+    while not stop_event.is_set():
+        print("Running B")
+        time.sleep(1)
+    print("Stopping B")
 
 def func_c():
-    global toggle_state
-    if toggle_state == 0:
-        toggle_state = 1
-        running = True
-    else:
-        running = False
-        toggle_state = 0
-        print("Stopping C")
-    while running:
+    global stop_event
+    print("Starting C")
+    while not stop_event.is_set():
         print("Running C")
         time.sleep(1)
+    print("Stopping C")
 
+def stop_current_thread():
+    global current_thread
+    if current_thread is not None:
+        current_thread.stop()
+        current_thread = None
 
-def stop_all_threads():
-    global threads
-    for name, thread in threads.items():
-        if thread is not None and thread.is_alive():
-            thread.join()
-            print(f"{name.capitalize()} Function Stopped")
-        threads[name] = None
-
-
-def start_thread(name, target_func):
-    """ スレッドの開始または再起動 """
-    global threads
-    if threads[name] is None or not threads[name].is_alive():
-        threads[name] = threading.Thread(target=target_func, daemon=True)
-        threads[name].start()
-        print(f"{name.capitalize()} Function Started!")
-    else:
-        print(f"{name.capitalize()} Function already Running.")
-
-
-def shutdown():
-    print("Shutting down...")
-    stop_all_threads()
-    GPIO.cleanup()
-    os.system("sudo shutdown now")
-
+def start_new_thread(target_func):
+    global current_thread
+    stop_current_thread()  # 現在のスレッドを停止
+    current_thread = ManagedThread(target_func)
+    current_thread.start()
 
 def monitor_button():
-    global toggle_state
-    print("Monitoring Button Pressed")
-    start_thread("a", FuncA)  # 初期クラス起動
+    print("Monitoring Button")
+    start_new_thread(func_a)
 
     while True:
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
@@ -102,23 +75,26 @@ def monitor_button():
             start_time = time.time()
 
             while GPIO.input(BUTTON_PIN) == GPIO.LOW:
-                pass  # ボタンが押されている間ループ
+                pass
 
             press_duration = time.time() - start_time
 
             if press_duration >= 5:  # 5秒以上
-                shutdown()
-            elif 3 <= press_duration < 5:  # 3～5秒
-                stop_all_threads()
-                start_thread("c", func_c)
+                print("Shutting Down")
+                stop_current_thread()
+                GPIO.cleanup()
+                break
+            elif press_duration >= 3:  # 3秒以上
+                print("Switching to Function C")
+                start_new_thread(func_c)
             elif press_duration < 3:  # 3秒未満
-                stop_all_threads()
-                start_thread("a", FuncA)
-
+                print("Switching to Function B")
+                start_new_thread(func_b)
 
 try:
     print("Press CTRL+C to quit")
     monitor_button()
 except KeyboardInterrupt:
+    print("Exiting Program")
+    stop_current_thread()
     GPIO.cleanup()
-    print("Quitting...")
