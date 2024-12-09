@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5b909ab7-a188-4056-bbb5-5f18b1217940" name="Changes" comment="" />
+    <list default="true" id="5b909ab7-a188-4056-bbb5-5f18b1217940" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Button.py" beforeDir="false" afterPath="$PROJECT_DIR$/Button.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -21,15 +24,15 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/KambeSemi_2024" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.main_program.executor": "Run",
-    "Python.other_program.executor": "Run",
-    "git-widget-placeholder": "22rd044__button",
-    "last_opened_file_path": "C:/Users/yurik/Documents/Kambesemi_2024",
-    "node.js.selected.package.tslint": "(autodetect)"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.main_program.executor&quot;: &quot;Run&quot;,
+    &quot;Python.other_program.executor&quot;: &quot;Run&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;22rd044__button&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/yurik/Documents/Kambesemi_2024&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\yurik\Documents\Kambesemi_2024" />
