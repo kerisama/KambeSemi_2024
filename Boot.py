@@ -7,8 +7,6 @@ import singlecomplete3 as single        # 単体機能
 import MultiFunc_master as m_master     # 複数機能 (マスター)
 import MultiFunc_slave as m_slave       # 複数機能 (スレーブ)
 
-from KambeSemi_2024.switch_pygame1 import stop_thread
-
 """ ボタンのGPIO設定 """
 BUTTON_PIN = 3
 GPIO.setmode(GPIO.BCM)
@@ -37,7 +35,7 @@ instances = {
 
 """ 終了 """
 def quitting():
-    stop_thread()
+    stop_all_threads()
     print("Shutting down...")
     os.system("sudo shutdown now")
 
