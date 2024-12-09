@@ -45,13 +45,19 @@ def func_b():
         time.sleep(1)
     print("Stopping B")
 
-def func_c():
-    global stop_event
-    print("Starting C")
-    while not stop_event.is_set():
-        print("Running C")
-        time.sleep(1)
-    print("Stopping C")
+class func_c:
+    def __init__(self):
+        self.running = True
+        threading.Thread(target=self.run,daemon=True).start()
+
+    def run(self):
+        while self.running and not stop_event.is_set():
+            print("Running C")
+            time.sleep(1)
+
+    def stop(self):
+        self.running = False
+        print("Stopping C")
 
 def stop_current_thread():
     global current_thread
@@ -62,8 +68,11 @@ def stop_current_thread():
 def start_new_thread(target_func):
     global current_thread
     stop_current_thread()  # 現在のスレッドを停止
-    current_thread = ManagedThread(target_func)
-    current_thread.start()
+    if callable(target_func):
+        current_thread = ManagedThread(target_func)
+        current_thread.start()
+    elif isinstance(target_func,type):
+        current_thread = target_func()
 
 def monitor_button():
     print("Monitoring Button")
