@@ -15,6 +15,7 @@ GPIO.setup(BUTTON_PIN, GPIO.IN,pull_up_down=GPIO.PUD_UP)
 Pi_status = 0
 
 
+# スレッド定義
 threads = {
     "a": None,
     "b": None,
@@ -28,6 +29,7 @@ threads = {
 # }
 
 
+# クラス
 class FuncA:
     def __init__(self):
         self.running = True
@@ -55,6 +57,8 @@ class FuncB:
         self.running = False
         print("Stopping B")
 
+
+# 関数
 def func_c():
     running = True
     while running:
@@ -115,7 +119,7 @@ def func_b():
 
 def monitor_button():
     print("Monitoring Button Pressed")
-    start_thread("a", FuncA)
+    start_thread("a", FuncA)    # クラスの呼び出し
 
     while True:
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
@@ -132,7 +136,7 @@ def monitor_button():
                 shutdown()  # 5秒以上ならシャットダウン
             elif press_duration >= 3:
                 stop_all_threads()
-                start_thread("c", func_c)
+                start_thread("c", func_c)   # 関数の呼び出し
             elif press_duration >= 3:
                 stop_all_threads()
                 start_thread("a", FuncA)
