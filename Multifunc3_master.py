@@ -1,4 +1,5 @@
-# Circle4_slave
+# Circle5_slave
+
 import pigpio  # GPIO制御
 import socket
 import json
@@ -15,11 +16,14 @@ import subprocess # 音声
 import os
 
 # SPIバスを開く
-spi = spidev.SpiDev()
-spi.open(0, 0)
-spi.max_speed_hz = 1000000
-# 圧力センサのチャンネルの宣言
-force_channel = 0
+# LED
+spi0 = spidev.SpiDev()
+spi0.open(0, 0)
+# 圧力
+spi1 = spidev.SpiDev()
+spi1.open(1, 0)
+spi1.max_speed_hz = 1000000
+
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -51,7 +55,7 @@ MATRIX_HEIGHT = 16
 
 # LED configuration
 LED_COUNT = 256
-LED_PIN = 18
+LED_PIN = 10
 LED_FREQ_HZ = 800000
 LED_DMA = 10
 LED_BRIGHTNESS = 10
@@ -60,8 +64,8 @@ LED_PER_PANEL = 16
 LED_CHANNEL = 0
 
 # Matrix setup
-MATRIX_ROWS = 2  # Number of horizontal panels
-MATRIX_COLS = 1  # Number of vertical panels
+MATRIX_ROWS = 2  # 横方向
+MATRIX_COLS = 1  # 縦方向
 MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
 
@@ -73,7 +77,7 @@ PORT = 5000
 
 
 class MultiClientServer:
-    def __init__(self, port: int = 5000):
+    def __init__(self, port: PORT):
         self.host = '0.0.0.0'
         self.port = port
         self.clients: Dict[Tuple[int, int], socket.socket] = {}  # {(row, column): socket}
@@ -374,9 +378,8 @@ def circle_pixels(xc, yc, radius):
 
 def draw_frame(frame_pixels, color):
     # Draw a single frame of animation.
-    # マスターの範囲内ならmaster_pixelsに、それ以外はslave_pixelsにする
+    # この筐体の範囲内のものだけにする
     master_pixels = [p for p in frame_pixels if p[0] < LED_PER_PANEL and p[1] < LED_PER_PANEL]
-    slave_pixels = [p for p in frame_pixels if p[0] >= LED_PER_PANEL or p[1] >= LED_PER_PANEL]
 
     # Draw master pixels
     for x, y in master_pixels:
@@ -388,12 +391,11 @@ def draw_frame(frame_pixels, color):
     # print(f"Master: {master_pixels}")
     
 
-    return slave_pixels, color
 
 
-def animate_circles(server, xc, yc):
-    # max_radius = min(MATRIX_GLOBAL_WIDTH, MATRIX_GLOBAL_HEIGHT) // 2
-    max_radius = 15
+
+def animate_circles(server, xc, yc, colors, max_radius):
+
 
     radius = 0
     clear_radius = 0
@@ -405,7 +407,7 @@ def animate_circles(server, xc, yc):
         #print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
         if radius < max_radius:
             circle = circle_pixels(xc, yc, radius)
-            color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+            color = colors[radius]
 
 
             # 衝突処理
@@ -414,30 +416,18 @@ def animate_circles(server, xc, yc):
             # for x, y in collision:
             #    draw_frame([(x, y)], [(color1[0] + color2[0]) // 2, (color1[1] + color2[1]) // 2, (color1[2] + color2[2]) // 2])
             
-            slave_pixels, color = draw_frame(circle, color)
+            draw_frame(circle, color)
             #print(f"Slave: {slave_pixels}")
 
-            # スレーブに送信
-            # slave_pixelsがあれば全スレーブに送信(broadcast)
-            if len(slave_pixels):  # 円の描画を送信
-                command = {"type": "draw", "coordinates": slave_pixels, "color": color}
-                with open("command.json", "w") as file:
-                    json.dump(command, file)
-                server.broadcast(command)
+            
             radius += 1
         
         # 描画している円の幅がCIRCLE_WIDTH以上になったら真ん中から消していく
         if radius > CIRCLE_WIDTH:
             clear_circle = circle_pixels(xc,yc,clear_radius)
             # 描画を消す
-            clear_slave_pixels, clear_color = draw_frame(clear_circle,[0,0,0])
+            draw_frame(clear_circle,[0,0,0])
             #print(f"Clear_Slave: {slave_pixels}")
-
-            if len(slave_pixels):  # 円の削除を送信
-                command = {"type": "draw", "coordinates": clear_slave_pixels, "color": [0, 0, 0]}
-                with open("command.json", "w") as file:
-                    json.dump(command, file)
-                server.broadcast(command)
             clear_radius += 1
         time.sleep(0.1)
     return server
@@ -522,7 +512,9 @@ def single_function():
         print("KeyboardInterrupt")
     finally:
         # 圧力センサに関するものを閉じる
-        spi.close()
+        spi0.close()
+        # 圧力センサに関するものを閉じる
+        spi1.close()
         # ToFストップ
         tof.stop_ranging()
         # Clear on exit
@@ -546,15 +538,29 @@ def multi_function():
     
     try:
         while True:
+            colors = []
+            max_radius = 15 #あつりょくのあたいで
+            
             count += 1
+            
+            # x,yを受け取り次第
             #x, y = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
             x, y = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
             
+            for i in range(max_radius):
+                color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+                colors.append(color)
+                
+            # スレーブに送信
+            command = {"type": "draw", "x": x, "y": y, "colors": colors, "max_radius": max_radius}
+            server.broadcast(command)
+            
             # 円描画のスレッドを作成 argsはanimate_circlesの引数 x,y 受け取ったら
-            animation_thread = threading.Thread(target=animate_circles, args=(server,x,y,))
+            animation_thread = threading.Thread(target=animate_circles, args=(server,x,y,colors,max_radius,))
             animation_thread.daemon = True # メインが終われば終わる
             animation_threads.append(animation_thread)
             animation_thread.start()
+            
             print(count)
             time.sleep(3)
         # アニメーションスレッドが全部終わるまで待つ
@@ -567,7 +573,8 @@ def multi_function():
     finally:
         
         # 圧力センサに関するものを閉じる
-        spi.close()
+        spi0.close()
+        spi1.close()
         # ToFストップ
         tof.stop_ranging()
         # 終了 (円の削除)

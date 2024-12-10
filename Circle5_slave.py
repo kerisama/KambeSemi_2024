@@ -1,4 +1,4 @@
-# スレーブ用コード
+# Multifunc3_master
 import socket
 import json
 import threading
@@ -7,11 +7,13 @@ import time
 
 # LED設定
 LED_COUNT = 256  # 16x16
-LED_PIN = 18
+LED_PIN = 10
 LED_FREQ_HZ = 800000
 LED_DMA = 10
 LED_BRIGHTNESS = 10
 LED_INVERT = False
+LED_PER_PANEL = 16  # 列ごとのLED数 (16)
+LED_CHANNEL = 0
 
 # PixelStripオブジェクトの初期化
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
@@ -23,12 +25,12 @@ MASTER_PORT = 5000
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
 SLAVE_COLS = 1  # 縦方向
-LED_PER_PANEL = 16  # 列ごとのLED数 (16)
-
 # スレーブ1の担当領域
-SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット (16~)
-SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット (0~)
+SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
+SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
 
+# 円の幅
+CIRCLE_WIDTH = 5
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
@@ -49,35 +51,89 @@ def clear_screen():
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
     
+# 複数機能につかう関数
+def circle_pixels(xc, yc, radius):
+    """Generate circle pixels for a given center and radius."""
+    x, y = 0, radius
+    d = 1 - radius
+    pixels = []
+
+    while x <= y:
+
+        for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
+            if 0 <= xc + dx < MATRIX_GLOBAL_WIDTH and 0 <= yc + dy < MATRIX_GLOBAL_HEIGHT:
+                pixels.append((xc + dx, yc + dy))
+        if d < 0:
+            d += 2 * x + 3
+        else:
+            d += 2 * (x - y) + 5
+            y -= 1
+        x += 1
+    return pixels
+
 def draw_slave(frame_pixels, color):
     # Draw a single frame of animation.
+    slave_pixels = [p for p in frame_pixels if SLAVE_ORIGIN_X <= p[0] < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= p[1] < SLAVE_ORIGIN_Y + 16]
 
-    for global_x, global_y in frame_pixels:
-        # このスレーブの範囲内なら
-        if SLAVE_ORIGIN_X <= global_x < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= global_y < SLAVE_ORIGIN_Y + 16:  # 自分の範囲内
-            # スレーブのオフセットを考慮してローカル座標に変換
-            local_x = global_x - SLAVE_ORIGIN_X
-            local_y = global_y - SLAVE_ORIGIN_Y
-
-            # デバッグ出力: 座標変換の結果
-            #print(f"グローバル座標: ({global_x}, {global_y}) → ローカル座標: ({local_x}, {local_y})")
-
-            local_x, local_y = zigzag_transform(local_x, local_y)  # ジグザグ配列の修正
-            # ジグザグ変換後の座標をデバッグ出力
-            print(f"ジグザグ変換: ({local_x}, {local_y})")
-            set_pixel_local(local_x, local_y, command["color"])
+    # Draw slave pixels
+    for x, y in slave_pixels:
+        # ローカル座標に変換
+        x -= SLAVE_ORIGIN_X
+        y -= SLAVE_ORIGIN_Y
+        # ジグザグ変換
+        zigzag_x, zigzag_y = zigzag_transform(x, y)
+        index = zigzag_y * LED_PER_PANEL + zigzag_x
+        strip.setPixelColor(index, Color(color[0], color[1], color[2]))
     strip.show()
 
+
+def animate_slave_circles(xc, yc, colors, max_radius):
+
+
+    radius = 0
+    clear_radius = 0
+    
+    # 円の描画
+    while True:
+        if clear_radius == max_radius:
+            break
+        #print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
+        if radius < max_radius:
+            circle = circle_pixels(xc, yc, radius)
+            color = colors[radius]
+
+
+            # 衝突処理
+            # Check collision and mix colors if needed
+            # collision = set(circle1) & set(circle2)
+            # for x, y in collision:
+            #    draw_frame([(x, y)], [(color1[0] + color2[0]) // 2, (color1[1] + color2[1]) // 2, (color1[2] + color2[2]) // 2])
+            
+            draw_slave(circle, color)
+            #print(f"Slave: {slave_pixels}")
+
+            
+            radius += 1
+        
+        # 描画している円の幅がCIRCLE_WIDTH以上になったら真ん中から消していく
+        if radius > CIRCLE_WIDTH:
+            clear_circle = circle_pixels(xc,yc,clear_radius)
+            # 描画を消す
+            draw_frame(clear_circle,[0,0,0])
+            #print(f"Clear_Slave: {slave_pixels}")
+            clear_radius += 1
+        time.sleep(0.1)
 
 
 def handle_command(command):
     # 受信したコマンドに応じて描画処理を実行する
     if command["type"] == "draw":
-        slave_pixels = command["coordinates"]
-        color = command["color"]
-        draw_slave_thread = threading.Thread(target=slave_pixels, args=(slave_pixels,color,))
-        draw_slave_thread.daemon = True # メインが終われば終わる
-        draw_slave_thread.start()
+        x = command["x"]
+        y = command["x"]
+        colors = command["colors"]
+        animation_slave_thread = threading.Thread(target=slave_pixels, args=(x,y,colors,max_radius,))
+        animation_slave_thread.daemon = True # メインが終われば終わる
+        animation_slave_thread.start()
     elif command["type"] == "clear":
         clear_screen()
 
