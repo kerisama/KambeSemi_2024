@@ -66,6 +66,7 @@ def multi_function():
     print("Stop Multi function (Master)")
 
 # 複数機能　(スレーブ)
+"""
 def multi_func_slave():
     global stop_event
     print("Start Multi function (Slave)")
@@ -73,20 +74,25 @@ def multi_func_slave():
         print("tmp")  # ダミー
         time.sleep(1)
     print("Stop Multi function (Slave)")
+"""
 
 
 def boot():
+    global isSingleMode,current_thread
     print("Booted!")
     print("Press Ctrl-C to quit...")
 
+    # 初期スレッドの起動
+    current_thread = ManagedThread(target=single_function if isSingleMode else multi_function)
+    current_thread.start()
+
     # ボタンのループ
     while True:
-        # 単体機能であるかどうか
-        if isSingleMode:
-            isSingleMode = single_function()
-        else:
-            isSingleMode = multi_function()
-
+        # # 単体機能であるかどうか
+        # if isSingleMode:
+        #     isSingleMode = single_function()
+        # else:
+        #     isSingleMode = multi_function()
 
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
             print("Button pressed")     # ボタン降下(デバッグ用)
@@ -100,15 +106,22 @@ def boot():
 
             if press_duration >= 5:
                 # 5秒以上押すとシャットダウン
+                current_thread.stop()
                 quitting()
 
             elif press_duration >= 3:
                 # 3秒以上で複数機能
                 isSingleMode = False
+                current_thread.stop()
+                current_thread = ManagedThread(target=multi_function)
+                current_thread.start()
 
             elif press_duration >= 1:
                 # 1秒以上で単体に戻す
                 isSingleMode = True
+                current_thread.stop()
+                current_thread = ManagedThread(target=single_function)
+                current_thread.start()
 
 
 if __name__ == "__main__":
