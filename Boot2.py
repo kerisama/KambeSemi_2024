@@ -15,6 +15,7 @@ GPIO.setup(BUTTON_PIN, GPIO.IN,pull_up_down=GPIO.PUD_UP)
 """ スレッド管理用変数 """
 current_thread = None
 stop_event = threading.Event()
+isSingleMode = False
 
 """ マスターとスレーブの判別 (0をマスター、1をスレーブとする) """
 Pi_status = 0
@@ -41,31 +42,13 @@ class ManagedThread:
 
 """ 終了 """
 def quitting():
-    stop_current_thread()
     print("Shutting down...")
     os.system("sudo shutdown now")
-
-""" スレッドの停止 """
-def stop_current_thread():
-    global current_thread
-    if current_thread is not None:
-        current_thread.stop()
-        current_thread = None
-
-""" スレッド開始 """
-def start_new_thread(target_func):
-    global current_thread
-    stop_current_thread()   # 前のスレッドを止める
-    if callable(target_func):
-        current_thread = ManagedThread(target_func)
-        current_thread.start()
-    elif isinstance(target_func,type):
-        current_thread = target_func()
 
 
 """ 各機能の関数 """
 # 単体機能
-def single_func():
+def single_function():
     global stop_event
     print("Start Single function")
     while not stop_event.is_set():
@@ -74,7 +57,7 @@ def single_func():
     print("Stop Single function")
 
 # 複数機能 (マスター)
-def multi_func_master():
+def multi_function():
     global stop_event
     print("Start Multi function (Master)")
     while not stop_event.is_set():
@@ -96,11 +79,15 @@ def boot():
     print("Booted!")
     print("Press Ctrl-C to quit...")
 
-    # 初期状態で単体機能開始
-    start_new_thread(single_func)
-
     # ボタンのループ
     while True:
+        # 単体機能であるかどうか
+        if isSingleMode:
+            isSingleMode = single_function()
+        else:
+            isSingleMode = multi_function()
+
+
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
             print("Button pressed")     # ボタン降下(デバッグ用)
             start_time = time.time()    # 押し始めた時間を記録
@@ -112,18 +99,16 @@ def boot():
             press_duration = time.time() - start_time   # 押していた時間を記録
 
             if press_duration >= 5:
-                quitting()      # 5秒以上押すとシャットダウン
+                # 5秒以上押すとシャットダウン
+                quitting()
 
             elif press_duration >= 3:
                 # 3秒以上で複数機能
-                if Pi_status == 0:     # マスター
-                    start_new_thread(multi_func_master)
-                else:   # スレーブ
-                    start_new_thread(multi_func_slave)
+                isSingleMode = False
 
             elif press_duration >= 1:
                 # 1秒以上で単体に戻す
-                start_new_thread(single_func)
+                isSingleMode = True
 
 
 if __name__ == "__main__":
