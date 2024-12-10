@@ -19,15 +19,21 @@ LED_CHANNEL = 0
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
-MASTER_IP = "192.168.10.65"
+MASTER_IP = "192.168.10.60"
 MASTER_PORT = 5000
 
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
-SLAVE_COLS = 1  # 縦方向
+SLAVE_COLS = 0  # 縦方向
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
+
+# Matrix setup
+MATRIX_ROWS = 2  # 横方向
+MATRIX_COLS = 1  # 縦方向
+MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
+MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
 
 # 円の幅
 CIRCLE_WIDTH = 5
@@ -120,7 +126,7 @@ def animate_slave_circles(xc, yc, colors, max_radius):
         if radius > CIRCLE_WIDTH:
             clear_circle = circle_pixels(xc, yc, clear_radius)
             # 描画を消す
-            draw_frame(clear_circle, [0, 0, 0])
+            draw_slave(clear_circle, [0, 0, 0])
             # print(f"Clear_Slave: {slave_pixels}")
             clear_radius += 1
         time.sleep(0.1)
@@ -132,7 +138,8 @@ def handle_command(command):
         x = command["x"]
         y = command["x"]
         colors = command["colors"]
-        animation_slave_thread = threading.Thread(target=slave_pixels, args=(x, y, colors, max_radius,))
+        max_radius = command["max_radius"]
+        animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
         animation_slave_thread.daemon = True  # メインが終われば終わる
         animation_slave_thread.start()
     elif command["type"] == "clear":
@@ -199,55 +206,6 @@ def start_local_server(port=12345):
                         print(f"Raw data: {data}")
 
     server_thread = threading.Thread(target=server_loop, daemon=True)
-    server_thread.start()
-
-
-def setup_slave(master_ip, master_port, row, column):
-    """スレーブをマスターと接続"""
-    client_id = get_client_id()
-
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((master_ip, master_port))
-        print(f"Connected to master at {master_ip}:{master_port}")
-
-        # 接続時に初期データを送信
-        init_data = {
-            "type": "init",
-            "client_id": client_id,
-            "position": {"row": row, "column": column}
-        }
-        send_to_master(client_socket, init_data)
-
-        # マスターからのデータを受信するスレッドを開始
-        listener_thread = threading.Thread(target=listen_for_master_data, args=(client_socket,))
-        listener_thread.daemon = True
-        listener_thread.start()
-
-        # 任意のデータを送信する例
-        while True:
-            sensor_data = {
-                "type": "sensor_data",
-                "client_id": client_id,
-                "position": {"row": row, "column": column},
-                "data": {"temperature": 25, "humidity": 60}
-            }
-            send_to_master(client_socket, sensor_data)
-            time.sleep(5)
-
-    except Exception as e:
-        print(f"Error setting up slave: {e}")
-    except KeyboardInterrupt:
-        print(f"Keyboard Interrupt")
-    finally:
-        clear_screen()
-        client_socket.close()
-
-
-if __name__ == '__main__':
-    clear_screen()  # 初期化で消灯
-    start_local_server(port=12345)  # ローカルサーバーを開始
-    setup_slave(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)  # マスターに接続ing.Thread(target=server_loop, daemon=True)
     server_thread.start()
 
 
