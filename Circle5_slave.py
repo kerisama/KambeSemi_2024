@@ -19,18 +19,25 @@ LED_CHANNEL = 0
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
 strip.begin()
 
-MASTER_IP = "192.168.10.65"
+MASTER_IP = "192.168.10.60"
 MASTER_PORT = 5000
 
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
-SLAVE_COLS = 1  # 縦方向
+SLAVE_COLS = 0  # 縦方向
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
 
+# Matrix setup
+MATRIX_ROWS = 2  # 横方向
+MATRIX_COLS = 1  # 縦方向
+MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
+MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
+
 # 円の幅
 CIRCLE_WIDTH = 5
+
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
@@ -44,13 +51,15 @@ def set_pixel_local(x, y, color):
 
     index = y * 16 + x
     strip.setPixelColor(index, Color(color[0], color[1], color[2]))
-    
+
+
 def clear_screen():
     """LEDマトリクスを消灯。"""
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
-    
+
+
 # 複数機能につかう関数
 def circle_pixels(xc, yc, radius):
     """Generate circle pixels for a given center and radius."""
@@ -71,9 +80,11 @@ def circle_pixels(xc, yc, radius):
         x += 1
     return pixels
 
+
 def draw_slave(frame_pixels, color):
     # Draw a single frame of animation.
-    slave_pixels = [p for p in frame_pixels if SLAVE_ORIGIN_X <= p[0] < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= p[1] < SLAVE_ORIGIN_Y + 16]
+    slave_pixels = [p for p in frame_pixels if
+                    SLAVE_ORIGIN_X <= p[0] < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= p[1] < SLAVE_ORIGIN_Y + 16]
 
     # Draw slave pixels
     for x, y in slave_pixels:
@@ -88,39 +99,29 @@ def draw_slave(frame_pixels, color):
 
 
 def animate_slave_circles(xc, yc, colors, max_radius):
-
-
     radius = 0
     clear_radius = 0
-    
+
     # 円の描画
     while True:
         if clear_radius == max_radius:
             break
-        #print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
+        # print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
         if radius < max_radius:
             circle = circle_pixels(xc, yc, radius)
             color = colors[radius]
 
-
-            # 衝突処理
-            # Check collision and mix colors if needed
-            # collision = set(circle1) & set(circle2)
-            # for x, y in collision:
-            #    draw_frame([(x, y)], [(color1[0] + color2[0]) // 2, (color1[1] + color2[1]) // 2, (color1[2] + color2[2]) // 2])
-            
             draw_slave(circle, color)
-            #print(f"Slave: {slave_pixels}")
+            # print(f"Slave: {slave_pixels}")
 
-            
             radius += 1
-        
+
         # 描画している円の幅がCIRCLE_WIDTH以上になったら真ん中から消していく
         if radius > CIRCLE_WIDTH:
-            clear_circle = circle_pixels(xc,yc,clear_radius)
+            clear_circle = circle_pixels(xc, yc, clear_radius)
             # 描画を消す
-            draw_frame(clear_circle,[0,0,0])
-            #print(f"Clear_Slave: {slave_pixels}")
+            draw_slave(clear_circle, [0, 0, 0])
+            # print(f"Clear_Slave: {slave_pixels}")
             clear_radius += 1
         time.sleep(0.1)
 
@@ -131,12 +132,12 @@ def handle_command(command):
         x = command["x"]
         y = command["x"]
         colors = command["colors"]
-        animation_slave_thread = threading.Thread(target=slave_pixels, args=(x,y,colors,max_radius,))
-        animation_slave_thread.daemon = True # メインが終われば終わる
+        max_radius = command["max_radius"]
+        animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
+        animation_slave_thread.daemon = True  # メインが終われば終わる
         animation_slave_thread.start()
     elif command["type"] == "clear":
         clear_screen()
-
 
 
 def get_client_id():
@@ -172,8 +173,9 @@ def send_to_master(client_socket, data: dict):
     except Exception as e:
         print(f"Failed to send to master: {e}")
 
+
 def start_local_server(port=12345):
-    #スレーブがコマンドを待機するローカルサーバー
+    # スレーブがコマンドを待機するローカルサーバー
     def server_loop():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_socket.bind(("0.0.0.0", port))
@@ -223,7 +225,7 @@ def setup_slave(master_ip, master_port, row, column):
         listener_thread.daemon = True
         listener_thread.start()
 
-
+        # ここで複数機能うごかす
         # 任意のデータを送信する例
         while True:
             sensor_data = {

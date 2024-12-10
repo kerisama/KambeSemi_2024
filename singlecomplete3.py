@@ -11,10 +11,8 @@ import os
 
 # SPIバスを開く
 spi = spidev.SpiDev()
-spi.open(0, 0)
+spi.open(1, 0)
 spi.max_speed_hz = 1000000
-# 圧力センサのチャンネルの宣言
-force_channel = 0
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -46,7 +44,7 @@ MATRIX_HEIGHT = 16
 
 # LED Setting
 LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
-LED_PIN = 18
+LED_PIN = 10
 LED_FREQ_HZ = 800000
 LED_DMA = 10
 LED_BRIGHTNESS = 10

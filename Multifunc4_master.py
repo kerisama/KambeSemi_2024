@@ -17,9 +17,9 @@ import os
 
 # SPIバスを開く
 # 圧力
-spi1 = spidev.SpiDev()
-spi1.open(1, 0)
-spi1.max_speed_hz = 1000000
+spi = spidev.SpiDev()
+spi.open(1, 0)
+spi.max_speed_hz = 1000000
 
 
 # 周期ごとの度数
@@ -118,8 +118,11 @@ class MultiClientServer:
                         print(f"Registered client at position: {position}")
 
                     elif received_data["type"] == "sensor_data":
-                        position = tuple(received_data["position"].values())
-                        print(f"Received from {position}: {received_data}")
+                        x = received_data["x"]
+                        y = received_data["y"]
+                        data_total = received_data["data_total"]
+                        print("multi_animation start")
+                        multi_animation(x, y, data_total)
 
                 except json.JSONDecodeError:
                     print("Failed to decode data from client")
@@ -354,6 +357,7 @@ def update_positions(points, target_x, target_y, strip, speed):
         time.sleep(speed)
 
 # 複数機能につかう関数
+# 円の配列の作成
 def circle_pixels(xc, yc, radius):
     """Generate circle pixels for a given center and radius."""
     x, y = 0, radius
@@ -373,6 +377,7 @@ def circle_pixels(xc, yc, radius):
         x += 1
     return pixels
 
+# マスターの描画
 def draw_frame(frame_pixels, color):
     # Draw a single frame of animation.
     # この筐体の範囲内のものだけにする
@@ -382,20 +387,14 @@ def draw_frame(frame_pixels, color):
     for x, y in master_pixels:
         zigzag_x, zigzag_y = zigzag_transform(x, y)
         index = zigzag_y * LED_PER_PANEL + zigzag_x
-        #print(color[0],color[1],color[2])
-        print(type(color[0]),type(color[1]),type(color[2]))
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
     strip.show()
 
     # print(f"Master: {master_pixels}")
-    
 
 
-
-
+# 円の描画
 def animate_circles(xc, yc, colors, max_radius):
-
-
     radius = 0
     clear_radius = 0
     
@@ -408,16 +407,7 @@ def animate_circles(xc, yc, colors, max_radius):
             circle = circle_pixels(xc, yc, radius)
             color = colors[radius]
 
-
-            # 衝突処理
-            # Check collision and mix colors if needed
-            # collision = set(circle1) & set(circle2)
-            # for x, y in collision:
-            #    draw_frame([(x, y)], [(color1[0] + color2[0]) // 2, (color1[1] + color2[1]) // 2, (color1[2] + color2[2]) // 2])
-            
             draw_frame(circle, color)
-            #print(f"Slave: {slave_pixels}")
-
             
             radius += 1
         
@@ -426,9 +416,35 @@ def animate_circles(xc, yc, colors, max_radius):
             clear_circle = circle_pixels(xc,yc,clear_radius)
             # 描画を消す
             draw_frame(clear_circle,[0,0,0])
-            #print(f"Clear_Slave: {slave_pixels}")
             clear_radius += 1
         time.sleep(0.1)
+
+# x,y座標、最大半径をブロードキャスト、マスターの描画
+def multi_animation(server, x, y, data_total):
+    colors = []
+    # 圧力値をもとに最大半径を決める
+    max_radius = int((4000 - data_total) / 100)
+
+    # 最大半径の最小値はCIRCLE_WIDTH + 1
+    if max_radius <= CIRCLE_WIDTH:
+        max_radius = CIRCLE_WIDTH + 1
+            
+    #x, y = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
+    #x, y = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
+    print("x:%d, y:%d. max_radius:%d" % (x, y, max_radius))
+
+    for i in range(max_radius):
+        color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+        colors.append(color)
+
+    # スレーブに送信
+    command = {"type": "draw", "x": x, "y": y, "colors": colors, "max_radius": max_radius}
+    server.broadcast(command)
+
+    # 円描画のスレッドを作成 argsはanimate_circlesの引数 x,y 受け取ったら
+    animation_thread = threading.Thread(target=animate_circles, args=(x,y,colors,max_radius,))
+    animation_thread.daemon = True # メインが終われば終わる
+    animation_thread.start()
 
 
 # 単体機能メイン
@@ -437,7 +453,7 @@ def single_function():
         while True:
             # 4つの圧力センサで重さ測定
             # 圧力ループ中に複数機能に切り替えができる
-            while isSingleMode:
+            while True:
                 """
                 # 複数機能ボタンおされたらreturn False
                 """
@@ -511,9 +527,7 @@ def single_function():
         print("KeyboardInterrupt")
     finally:
         # 圧力センサに関するものを閉じる
-        spi0.close()
-        # 圧力センサに関するものを閉じる
-        spi1.close()
+        spi.close()
         # ToFストップ
         tof.stop_ranging()
         # Clear on exit
@@ -524,57 +538,85 @@ def single_function():
 
 # 複数機能メイン
 def multi_function():
-    # 通信設定
+    # サーバーのスレッドを立ち上げてサーバーをつくる
     server = MultiClientServer()
     server_thread = threading.Thread(target=server.start_server)
     server_thread.daemon = True # メインが終われば終わる
     server_thread.start()
-    animation_threads = []
-    
-    
-    
-    count = 0
     
     try:
         while True:
-            colors = []
-            max_radius = 15 #あつりょくのあたいで
             
-            count += 1
-            
-            # x,yを受け取り次第
-            #x, y = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-            x, y = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
-            print("x:%d, y:%d" % (x, y))
-            
-            for i in range(max_radius):
-                color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-                colors.append(color)
-                
-            # スレーブに送信
-            command = {"type": "draw", "x": x, "y": y, "colors": colors, "max_radius": max_radius}
-            server.broadcast(command)
-            
-            # 円描画のスレッドを作成 argsはanimate_circlesの引数 x,y 受け取ったら
-            animation_thread = threading.Thread(target=animate_circles, args=(x,y,colors,max_radius,))
-            animation_thread.daemon = True # メインが終われば終わる
-            animation_threads.append(animation_thread)
-            animation_thread.start()
-            
-            print(count)
+            # 4つの圧力センサで重さ測定
+            # 圧力ループ中に複数機能に切り替えができる
+            while True:
+                """
+                # 複数機能ボタンおされたらreturn True
+                if ~~~:
+                    clear_screen()
+                    command = {"type": "isSingle"}
+                    server.broadcast(command)
+                    if hasattr(server, 'server_socket'):
+                        print("Server shutdown")
+                        server.shutdown(server.server_socket)
+                    else:
+                        print("Server socket not found.")
+                    return True
+                """
+                # 圧力の合計データの初期化
+                data_total = 0
+                # ４箇所の圧力を測定
+                for i in range(4):
+                    # センサのチャンネルの切り替え
+                    data = ReadChannel(i)
+                    data_total += data
+                    print("channel: %d" % (i))
+                    print("A/D Converter: {0}".format(data))
+                    volts = ConvertVolts(data,3)
+                    print("Volts: {0}".format(volts))
+                # ４つの圧力の合計値(通信する変数1:data_total)
+                print("Data total: {0}\n".format(data_total))
+                data_total = 2500 # デバック用圧力合計値
+                # 一定以下の圧力になったら抜ける
+                if data_total <= 3600:
+                    if data_total < 1800:
+                        MP3_PATH = 'sample1.mp3'
+                    else:
+                        MP3_PATH = 'sample2.mp3'
+                        break
+                    
+                    
+            """
+            #os.system("amixer sset Master on")
+            print()
+            # 音を鳴らす
+            #subprocess.Popen(['aplay', 'test.wav'])
             time.sleep(3)
-        # アニメーションスレッドが全部終わるまで待つ
-        """
-        for thread in animation_threads:
-            thread.join
-        """
+            args =  ['kill', str(process.pid)]
+            subprocess.Popen(args)
+            #os.system("amixer sset Master off")
+            print()
+            """
+                    
+            # ToFセンサとサーボで物体の位置特定
+            print("find position of object")
+            target_x, target_y = find_pos(timing)
+            #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+            # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
+            target_x /= 10 # mmからcmに変換
+            target_y /= 10 # mmからcmに変換
+
+            print(f"Target position: ({target_x}, {target_y})")
+            target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+            target_x, target_y = int(target_x), int(target_y)
+            multi_animation(server, target_x, target_y, data_total)
+            time.sleep(5)
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
     finally:
         
         # 圧力センサに関するものを閉じる
-        spi0.close()
-        spi1.close()
+        spi.close()
         # ToFストップ
         tof.stop_ranging()
         # 終了 (円の削除)
