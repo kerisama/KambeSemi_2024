@@ -203,6 +203,8 @@ def animate_slave_circles(xc, yc, colors, max_radius):
             clear_radius += 1
         time.sleep(0.1)
 
+
+
 if __name__ == '__main__':
     # PixelStripオブジェクトの初期化
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)

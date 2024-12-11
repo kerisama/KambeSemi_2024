@@ -38,114 +38,6 @@ MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
 # 円の幅
 CIRCLE_WIDTH = 5
 
-class MasterConnection:
-    def __init__(self, master_ip, master_port, row, column):
-        self.master_ip = master_ip
-        self.master_port = master_port
-        self.row = row
-        self.column = column
-        self.client_socket = None
-        self.client_id = self.get_client_id()
-
-    def get_client_id(self):
-        """ユニークなクライアントIDを生成"""
-        return f"Device_{socket.gethostname()}"
-
-    def send_to_master(self, data: dict):
-        """任意のデータをマスターに送信"""
-        try:
-            if self.client_socket:
-                self.client_socket.send(json.dumps(data).encode())
-                print(f"Sent to master: {data}")
-            else:
-                print("Client socket is not connected.")
-        except Exception as e:
-            print(f"Failed to send to master: {e}")
-
-    def listen_for_master_data(self):
-        """マスターからのデータを受信"""
-        try:
-            while True:
-                data = self.client_socket.recv(1024)
-                if not data:
-                    break
-                try:
-                    received_data = json.loads(data.decode())
-                    print(f"Received from master: {received_data}")
-                    # 受信できたらデータの処理をする
-                    self.handle_command(received_data)
-                except json.JSONDecodeError:
-                    print("Failed to decode data from master")
-        except Exception as e:
-            print(f"Error receiving from master: {e}")
-        finally:
-            self.client_socket.close()
-
-    def handle_command(self, command):
-        # 受信したコマンドに応じて描画処理を実行する
-        if command["type"] == "draw":
-            x = command["x"]
-            y = command["y"]
-            colors = command["colors"]
-            max_radius = command["max_radius"]
-            print("adada")
-            animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
-            animation_slave_thread.daemon = True  # メインが終われば終わる
-            animation_slave_thread.start()
-        elif command["type"] == "clear":
-            clear_screen()
-
-    def setup_slave(self):
-        """スレーブをマスターと接続"""
-        try:
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client_socket.connect((self.master_ip, self.master_port))
-            print(f"Connected to master at {self.master_ip}:{self.master_port}")
-
-            # 接続時に初期データを送信
-            init_data = {
-                "type": "init",
-                "client_id": self.client_id,
-                "position": {"row": self.row, "column": self.column}
-            }
-            self.send_to_master(init_data)
-
-            # マスターからのデータを受信するスレッドを開始
-            listener_thread = threading.Thread(target=self.listen_for_master_data)
-            listener_thread.daemon = True
-            listener_thread.start()
-
-            # 任意のデータを送信する例
-            while True:
-                sensor_data = {
-                    "type": "sensor_data",
-                    "x": 17,
-                    "y": 4,
-                    "data_total": 3000
-                }
-                self.send_to_master(sensor_data)
-                time.sleep(5)
-
-        except Exception as e:
-            print(f"Error setting up slave: {e}")
-        except KeyboardInterrupt:
-            print(f"Keyboard Interrupt")
-        finally:
-            self.clear_screen()
-            if self.client_socket:
-                self.client_socket.close()
-
-    def clear_screen(self):
-        """LEDマトリクスを消灯。"""
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-        strip.show()
-
-    def close_connection(self):
-        """マスターとの接続を切る"""
-        if self.client_socket:
-            self.client_socket.close()
-            print("Disconnected from master")
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
@@ -153,6 +45,22 @@ def zigzag_transform(x, y, width=16):
         x = LED_PER_PANEL - 1 - x
     return x, y
 
+
+def set_pixel_local(x, y, color):
+    """ローカル座標でピクセルに色を設定する。"""
+
+    index = y * 16 + x
+    strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+
+
+def clear_screen():
+    """LEDマトリクスを消灯。"""
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
+
+
+# 複数機能につかう関数
 def circle_pixels(xc, yc, radius):
     """Generate circle pixels for a given center and radius."""
     x, y = 0, radius
@@ -160,6 +68,7 @@ def circle_pixels(xc, yc, radius):
     pixels = []
 
     while x <= y:
+
         for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
             if 0 <= xc + dx < MATRIX_GLOBAL_WIDTH and 0 <= yc + dy < MATRIX_GLOBAL_HEIGHT:
                 pixels.append((xc + dx, yc + dy))
@@ -170,6 +79,7 @@ def circle_pixels(xc, yc, radius):
             y -= 1
         x += 1
     return pixels
+
 
 def draw_slave(frame_pixels, color):
     # Draw a single frame of animation.
@@ -186,6 +96,7 @@ def draw_slave(frame_pixels, color):
         index = zigzag_y * LED_PER_PANEL + zigzag_x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
     strip.show()
+
 
 def animate_slave_circles(xc, yc, colors, max_radius):
     radius = 0
@@ -211,6 +122,97 @@ def animate_slave_circles(xc, yc, colors, max_radius):
         time.sleep(0.1)
 
 
+def handle_command(command):
+    # 受信したコマンドに応じて描画処理を実行する
+    if command["type"] == "draw":
+        x = command["x"]
+        y = command["y"]
+        colors = command["colors"]
+        max_radius = command["max_radius"]
+        print("adada")
+        animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
+        animation_slave_thread.daemon = True  # メインが終われば終わる
+        animation_slave_thread.start()
+    elif command["type"] == "clear":
+        clear_screen()
+
+
+def get_client_id():
+    """ユニークなクライアントIDを生成"""
+    return f"Device_{socket.gethostname()}"
+
+
+def listen_for_master_data(client_socket):
+    """マスターからのデータを受信"""
+    try:
+        while True:
+            data = client_socket.recv(1024)
+            if not data:
+                break
+            try:
+                received_data = json.loads(data.decode())
+                print(f"Received from master: {received_data}")
+                # 受信できたらデータの処理をする
+                handle_command(received_data)
+            except json.JSONDecodeError:
+                print("Failed to decode data from master")
+    except Exception as e:
+        print(f"Error receiving from master: {e}")
+    finally:
+        client_socket.close()
+
+
+def send_to_master(client_socket, data: dict):
+    """任意のデータをマスターに送信"""
+    try:
+        client_socket.send(json.dumps(data).encode())
+        print(f"Sent to master: {data}")
+    except Exception as e:
+        print(f"Failed to send to master: {e}")
+
+
+def setup_slave(master_ip, master_port, row, column):
+    """スレーブをマスターと接続"""
+    client_id = get_client_id()
+
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((master_ip, master_port))
+        print(f"Connected to master at {master_ip}:{master_port}")
+
+        # 接続時に初期データを送信
+        init_data = {
+            "type": "init",
+            "client_id": client_id,
+            "position": {"row": row, "column": column}
+        }
+        send_to_master(client_socket, init_data)
+
+        # マスターからのデータを受信するスレッドを開始
+        listener_thread = threading.Thread(target=listen_for_master_data, args=(client_socket,))
+        listener_thread.daemon = True
+        listener_thread.start()
+
+        # 任意のデータを送信する例
+        while True:
+            sensor_data = {
+                "type": "sensor_data",
+                "x": 17,
+                "y": 4,
+                "data_total": 3000
+            }
+            send_to_master(client_socket, sensor_data)
+            time.sleep(5)
+
+    except Exception as e:
+        print(f"Error setting up slave: {e}")
+    except KeyboardInterrupt:
+        print(f"Keyboard Interrupt")
+    finally:
+        clear_screen()
+        client_socket.close()
+
+
 if __name__ == '__main__':
-    master_connection = MasterConnection(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)
-    master_connection.setup_slave()  # マスターに接続
+    clear_screen()  # 初期化で消灯
+    setup_slave(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)  # マスターに接続
