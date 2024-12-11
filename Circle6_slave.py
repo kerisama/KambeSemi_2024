@@ -15,9 +15,7 @@ LED_INVERT = False
 LED_PER_PANEL = 16  # 列ごとのLED数 (16)
 LED_CHANNEL = 0
 
-# PixelStripオブジェクトの初期化
-strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
-strip.begin()
+
 
 MASTER_IP = "192.168.10.60"
 MASTER_PORT = 5000
@@ -30,10 +28,8 @@ SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
 
 # Matrix setup
-MATRIX_ROWS = 2  # 横方向
-MATRIX_COLS = 1  # 縦方向
-MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
-MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
+MATRIX_GLOBAL_WIDTH = (SLAVE_ROWS + 1) * LED_PER_PANEL
+MATRIX_GLOBAL_HEIGHT = (SLAVE_COLS + 1) * LED_PER_PANEL
 
 # 円の幅
 CIRCLE_WIDTH = 5
@@ -88,7 +84,6 @@ class MasterConnection:
             y = command["y"]
             colors = command["colors"]
             max_radius = command["max_radius"]
-            print("adada")
             animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
             animation_slave_thread.daemon = True  # メインが終われば終わる
             animation_slave_thread.start()
@@ -96,56 +91,54 @@ class MasterConnection:
             clear_screen()
 
     def setup_slave(self):
-        """スレーブをマスターと接続"""
-        try:
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client_socket.connect((self.master_ip, self.master_port))
-            print(f"Connected to master at {self.master_ip}:{self.master_port}")
+        """スレーブをマスターと接続（接続に失敗した場合は再接続）"""
+        while True:
+            try:
+                self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.client_socket.connect((self.master_ip, self.master_port))
+                print(f"Connected to master at {self.master_ip}:{self.master_port}")
 
-            # 接続時に初期データを送信
-            init_data = {
-                "type": "init",
-                "client_id": self.client_id,
-                "position": {"row": self.row, "column": self.column}
-            }
-            self.send_to_master(init_data)
-
-            # マスターからのデータを受信するスレッドを開始
-            listener_thread = threading.Thread(target=self.listen_for_master_data)
-            listener_thread.daemon = True
-            listener_thread.start()
-
-            # 任意のデータを送信する例
-            while True:
-                sensor_data = {
-                    "type": "sensor_data",
-                    "x": 17,
-                    "y": 4,
-                    "data_total": 3000
+                # 接続時に初期データを送信
+                init_data = {
+                    "type": "init",
+                    "client_id": self.client_id,
+                    "position": {"row": self.row, "column": self.column}
                 }
-                self.send_to_master(sensor_data)
-                time.sleep(5)
+                self.send_to_master(init_data)
 
-        except Exception as e:
-            print(f"Error setting up slave: {e}")
-        except KeyboardInterrupt:
-            print(f"Keyboard Interrupt")
-        finally:
-            self.clear_screen()
-            if self.client_socket:
-                self.client_socket.close()
+                # マスターからのデータを受信するスレッドを開始
+                listener_thread = threading.Thread(target=self.listen_for_master_data)
+                listener_thread.daemon = True
+                listener_thread.start()
 
-    def clear_screen(self):
-        """LEDマトリクスを消灯。"""
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-        strip.show()
+                break  # 接続成功後はループを抜ける
+
+            except (socket.error, Exception) as e:
+                print(f"Error connecting to master: {e}. Retrying in 2 seconds...")
+                time.sleep(2)  # 5秒後に再試行
+
+        # マスターとの接続が切れた場合も再接続を試みる
+        self.reconnect_if_disconnected()
+
+    def reconnect_if_disconnected(self):
+        """接続が切れた場合に再接続を試みる"""
+        while True:
+            if self.client_socket is None or self.client_socket.fileno() == -1:  # ソケットが閉じられている場合
+                print("Connection lost. Reconnecting...")
+                self.setup_slave()  # 再接続を試みる
+            time.sleep(5)
 
     def close_connection(self):
         """マスターとの接続を切る"""
         if self.client_socket:
             self.client_socket.close()
             print("Disconnected from master")
+
+def clear_screen():
+    """LEDマトリクスを消灯。"""
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
 
 def zigzag_transform(x, y, width=16):
     """ジグザグ配列に変換する座標"""
@@ -210,7 +203,33 @@ def animate_slave_circles(xc, yc, colors, max_radius):
             clear_radius += 1
         time.sleep(0.1)
 
-
 if __name__ == '__main__':
+    # PixelStripオブジェクトの初期化
+    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS)
+    strip.begin()
+
+    clear_screen()
+
     master_connection = MasterConnection(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)
-    master_connection.setup_slave()  # マスターに接続
+    # スレッドでマスター接続を開始
+    master_thread = threading.Thread(target=master_connection.setup_slave)
+    master_thread.daemon = True
+    master_thread.start()
+
+    # メインスレッドで他の処理が続行できるようにする
+    # 任意のデータを送信する例
+    try:
+        while True:
+            sensor_data = {
+                "type": "sensor_data",
+                "x": 17,
+                "y": 4,
+                "data_total": 3000
+            }
+            master_connection.send_to_master(sensor_data)
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt")
+    finally:
+        clear_screen()
+        master_connection.close_connection()
