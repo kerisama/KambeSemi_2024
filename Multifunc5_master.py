@@ -1,5 +1,5 @@
 # Circle5_slave
-
+import RPi.GPIO as GPIO
 import pigpio  # GPIO制御
 import socket
 import json
@@ -39,16 +39,19 @@ Y_OUT = DISPLAY_Y - 7
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
 DISTANCE_ERROR = 30
 
-# SG90のピン設定
-SERVO_PIN = 23  # SG90
+
 
 # pigpioデーモンに接続し、piオブジェクトを作成
 pi = pigpio.pi()
 
+# SG90のピン設定
+SERVO_PIN = 23  # SG90
+pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
+
 # ボタンのGPIO設定
 BUTTON_PIN = 3
-pi.set_mode(BUTTON_PIN, pigpio.INPUT)
-pi.set_pull_up_down(BUTTON_PIN, pigpio.PUD_UP)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(BUTTON_PIN, GPIO.IN)
 
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
@@ -68,7 +71,7 @@ LED_PER_PANEL = 16
 LED_CHANNEL = 0
 
 # Matrix setup
-MATRIX_ROWS = 2  # 横方向
+MATRIX_ROWS = 1  # 横方向
 MATRIX_COLS = 1  # 縦方向
 MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
@@ -79,32 +82,6 @@ CIRCLE_WIDTH = 5
 # 通信設定
 PORT = 5000
 
-# スレッド切り替え用グローバル変数
-current_thread = None
-button_processing = False   # ボタン降下処理中フラグ
-
-""" スレッド管理用クラス """
-class ManagedThread:
-    def __init__(self,target):
-        self.target = target
-        self.thread = None
-
-    def start(self):
-        global stop_event
-        stop_event.clear()
-        self.thread = threading.Thread(target=self.target,daemon=True)
-        self.thread.start()
-
-    def stop(self):
-        global stop_event
-        stop_event.set()
-        if self.thread is not None:
-            self.thread.join()
-
-""" 終了 """
-def quitting():
-    print("Shutting down...")
-    os.system("sudo shutdown now")
 
 
 class MultiClientServer:
@@ -271,6 +248,7 @@ def find_pos(timing):
     valInit.SvDeg = 0
     set_angle(valInit.SvDeg)
 
+    print(timing)
     time.sleep(0.1)
 
     # 配列の初期化
@@ -283,8 +261,8 @@ def find_pos(timing):
     for i in range(0, 91, DEGREE_CYCLE):  # 0~90度で増加量はDEGREE_CYCLE
         valInit.SvDeg = i
         set_angle(valInit.SvDeg)  # サーボを回転
-        # print(valInit.SvDeg)
-
+        print(valInit.SvDeg)
+        
         # ToFセンサで測距
         distance = tof.get_distance()
         # ToFセンサの誤差を引いて正確な値にする
@@ -319,7 +297,8 @@ def find_pos(timing):
                     count = 0
                 if count == 5:  # 5度連続で範囲外ならforをぬける
                     break
-        time.sleep(timing / 1000000.00)
+        #time.sleep(timing / 1000000.00)
+        time.sleep(0.1)
 
     # 余分に記録した末尾5個のリストを削除
     del pointlist[-5:]
@@ -668,50 +647,46 @@ def multi_function():
         # システム終了
         sys.exit(0)
 
+button_processing = False
 
-""" ボタンの押下時間計測とモード切り替え """
-def button_callback(gpio, level, tick):
-    global current_thread,button_processing
+def button_callback(channel):
+    global button_processing
 
     if button_processing:
         return  # 処理中なら何もしない
     button_processing = True
 
     try:
-        if level == 0:  # ボタンが押されたとき
-            print("Button pressed")  # ボタン降下(デバッグ用)
-            start_time = time.time()  # 押し始めた時間を記録
+        if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
+            print("Button pressed")  # デバッグ用メッセージ
+            start_time = time.time()  # ボタンが押された時間を記録
 
-            while pi.read(BUTTON_PIN) == 0:
+            while GPIO.input(BUTTON_PIN) == GPIO.LOW:
                 pass  # ボタンが押されている間ループ
 
             press_duration = time.time() - start_time  # 押していた時間を記録
 
             if press_duration >= 5:
                 # 5秒以上押すとシャットダウン
-                current_thread.stop()
-                quitting()
+                print("Shutting down...")
+                # quitting()
 
             elif press_duration >= 3:
                 # 3秒以上で複数機能
-                current_thread.stop()
                 print("Multi function")
-                current_thread = ManagedThread(target=multi_function)
-                current_thread.start()
+                multi_function()
 
             elif press_duration >= 1:
                 # 1秒以上で単体に戻す
-                current_thread.stop()
                 print("Single function")
-                current_thread = ManagedThread(target=single_function)
-                current_thread.start()
+                single_function()
 
     finally:
         button_processing = False
-            
+        print("Button processing complete")
 
 if __name__ == '__main__':
-    # 初期設定
+     # 初期設定
     valInit()  # 変数の初期化
 
     # ToF起動
@@ -731,21 +706,20 @@ if __name__ == '__main__':
     
     clear_screen()
 
-    # スレッド管理
-    stop_event = threading.Event()
-    # 初期スレッドの起動
-    print("Single function")
-    current_thread = ManagedThread(target=single_function)
-    current_thread.start()
+    
 
-    # ボタンコールバックの設定と処理
-    pi.callback(BUTTON_PIN, pigpio.EITHER_EDGE, button_callback)
-        
-    
-    # 複数機能になるごとにさーばーたてる、単体になったらサーバーとじるでいけるかも
-    # スレーブはせつぞくがきれたら単体機能にもどる？
-    
-    
-    
-    
-    
+    # ボタンのコールバックを設定
+    # gpio3のi2c機能を無効化しないとだめ。tofは他のピンに
+    GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=button_callback, bouncetime=200)
+
+    # 初期状態で single_function を実行
+    print("Starting with Single function")
+    single_function()
+
+    try:
+        while True:
+            print("A")
+            time.sleep(0.5)  # 少し待つことでCPU使用率を低減
+    except KeyboardInterrupt:
+        print("Exiting...")
+        GPIO.cleanup()  # 終了時にGPIO設定をクリアして警告を避ける
