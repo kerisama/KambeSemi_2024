@@ -15,6 +15,8 @@ import spidev # 圧力センサ
 import subprocess # 音声
 import os
 
+import datetime
+
 # SPIバスを開く
 # 圧力
 spi = spidev.SpiDev()
@@ -122,7 +124,7 @@ class MultiClientServer:
                         y = received_data["y"]
                         data_total = received_data["data_total"]
                         print("multi_animation start")
-                        multi_animation(x, y, data_total)
+                        multi_animation(self, x, y, data_total)
 
                 except json.JSONDecodeError:
                     print("Failed to decode data from client")
@@ -388,6 +390,7 @@ def draw_frame(frame_pixels, color):
         zigzag_x, zigzag_y = zigzag_transform(x, y)
         index = zigzag_y * LED_PER_PANEL + zigzag_x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
+        #print(datetime.datetime.now())
     strip.show()
 
     # print(f"Master: {master_pixels}")
