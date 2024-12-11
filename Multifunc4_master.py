@@ -329,7 +329,7 @@ def update_positions(points, target_x, target_y, strip, speed):
         for point in points[:]:
             x, y, color = point
             # Clear current position
-            strip.setPixelColor(zigzag_matrix(x, y), Color(0, 0, 0))
+            strip.setPixelColor(zigzag_transform(x, y), Color(0, 0, 0))
 
             # Calculate direction to target
             dx = target_x - x
@@ -524,7 +524,7 @@ def single_function():
             print("update position end")
 
             # Clear the matrix
-            clear_matrix(strip)
+            clear_screen()
         
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
@@ -534,7 +534,7 @@ def single_function():
         # ToFストップ
         tof.stop_ranging()
         # Clear on exit
-        clear_matrix(strip)
+        clear_screen()
         # システム終了
         sys.exit(0)
 
