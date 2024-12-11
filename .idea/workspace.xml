@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="55a6d7cc-57cb-4082-8654-4857df91fe1f" name="Changes" comment="" />
+    <list default="true" id="55a6d7cc-57cb-4082-8654-4857df91fe1f" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/Boot2.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Multifunc5_master.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -24,8 +28,9 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "22RD163-sensor",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/yurik/Documents/Kambesemi_2024",
     "node.js.detected.package.eslint": "true",
@@ -36,6 +41,14 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\yurik\Documents\Kambesemi_2024" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\yurik\Documents\Kambesemi_2024" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
