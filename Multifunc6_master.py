@@ -23,6 +23,21 @@ spi = spidev.SpiDev()
 spi.open(1, 0)
 spi.max_speed_hz = 1000000
 
+# pigpioデーモンに接続し、piオブジェクトを作成
+pi = pigpio.pi()
+
+# SG90のピン設定
+SERVO_PIN = 23  # SG90
+pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
+
+# ボタンのGPIO設定
+BUTTON_PIN = 3
+pi.set_mode(BUTTON_PIN, pigpio.INPUT)
+
+stop_flag = threading.Event()
+
+# Create a VL53L0X object
+tof = VL53L0X.VL53L0X()
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -38,23 +53,6 @@ Y_OUT = DISPLAY_Y - 7
 # ToFセンサの誤差(mm)
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
 DISTANCE_ERROR = 30
-
-
-
-# pigpioデーモンに接続し、piオブジェクトを作成
-pi = pigpio.pi()
-
-# SG90のピン設定
-SERVO_PIN = 23  # SG90
-pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
-
-# ボタンのGPIO設定
-BUTTON_PIN = 3
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(BUTTON_PIN, GPIO.IN)
-
-# Create a VL53L0X object
-tof = VL53L0X.VL53L0X()
 
 # Matrix setting
 MATRIX_WIDTH = 16
@@ -83,6 +81,9 @@ CIRCLE_WIDTH = 5
 PORT = 5000
 
 
+def quitting():
+    print("Shutting down...")
+    os.system("sudo shutdown now")
 
 class MultiClientServer:
     def __init__(self, port: int = PORT):
@@ -248,7 +249,7 @@ def find_pos(timing):
     valInit.SvDeg = 0
     set_angle(valInit.SvDeg)
 
-    print(timing)
+    #print(timing)
     time.sleep(0.1)
 
     # 配列の初期化
@@ -334,7 +335,7 @@ def clear_screen():
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
-        print("a")
+        print("light gathering...")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:
@@ -469,7 +470,7 @@ def single_function():
         while True:
             # 4つの圧力センサで重さ測定
             # 圧力ループ中に複数機能に切り替えができる
-            while True:
+            while not stop_flag.is_set():
                 """
                 # 複数機能ボタンおされたらreturn False
                 """
@@ -542,6 +543,9 @@ def single_function():
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
     finally:
+        # コールバックを解除して終了
+        cb.cancel()
+        pi.stop()
         # 圧力センサに関するものを閉じる
         spi.close()
         # ToFストップ
@@ -557,10 +561,11 @@ def multi_function(server):
     
     try:
         while True:
-            
             # 4つの圧力センサで重さ測定
-            # 圧力ループ中に複数機能に切り替えができる
             while True:
+                
+                if stop_flag.is_set():
+
                 # 圧力の合計データの初期化
                 data_total = 0
                 # ４箇所の圧力を測定
@@ -612,6 +617,9 @@ def multi_function(server):
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
     finally:
+        # コールバックを解除して終了
+        cb.cancel()
+        pi.stop()
         # 圧力センサに関するものを閉じる
         spi.close()
         # ToFストップ
@@ -629,58 +637,73 @@ def multi_function(server):
         sys.exit(0)
 
 button_processing = False
-isSingleMode = False
 
-def button_callback(channel):
+def button_callback(gpio, level, tick):
     global button_processing
 
+    print(f"Button pressed! GPIO: {gpio}, Level: {level}, Tick: {tick}")
     if button_processing:
         return  # 処理中なら何もしない
     button_processing = True
 
-    try:
-        if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
-            print("Button pressed")  # デバッグ用メッセージ
-            start_time = time.time()  # ボタンが押された時間を記録
 
-            while GPIO.input(BUTTON_PIN) == GPIO.LOW:
-                pass  # ボタンが押されている間ループ
+    if level == 0:  # ボタンが押されたとき  # ボタンが押されたとき
+        print("Button pressed")  # デバッグ用メッセージ
+        start_time = time.time()  # ボタンが押された時間を記録
 
-            press_duration = time.time() - start_time  # 押していた時間を記録
+        while pi.read(BUTTON_PIN) == 0:
+            pass  # ボタンが押されている間ループ
 
-            if press_duration >= 5:
-                # 5秒以上押すとシャットダウン
-                print("Shutting down...")
-                # quitting()
+        press_duration = time.time() - start_time  # 押していた時間を記録
 
-            elif press_duration >= 1:
-                # 複数機能に切り替え
-                if isSingleMode == True:
-                    isSingleMode = False
-                    print("Multi function")
-                    # サーバーのスレッドを立ち上げてサーバーをつくる
-                    server = MultiClientServer()
-                    server_thread = threading.Thread(target=server.start_server)
-                    server_thread.daemon = True # メインが終われば終わる
-                    server_thread.start()
-                    multi_function(server)
-                # 単体機能に切り替え
+        if press_duration >= 5:
+            # 5秒以上押すとシャットダウン
+            quitting()
+
+
+        elif press_duration >= 1:
+            stop_flag.set()
+            time.sleep(0.1)
+            stop_flag.clear()
+            # 複数機能に切り替え
+            if isSingleMode == True:
+                isSingleMode == False
+        
+                # サーバーのスレッドを立ち上げてサーバーをつくる
+                server = MultiClientServer()
+                server_thread = threading.Thread(target=server.start_server)
+                server_thread.daemon = True # メインが終われば終わる
+                server_thread.start()
+
+                # single_functionスレッドを止めて、multi_functionスレッド立ち上げ
+                multi_thread = threading.Thread(target=multi_function,args=server)
+                multi_thread.daemon = True # メインが終われば終わる
+                multi_thread.start()
+
+                button_processing = False
+                print("Button processing complete")
+                    
+            # 単体機能に切り替え
+            else:
+                isSingleMode = True
+                clear_screen()
+                command = {"type": "clear"}
+                server.broadcast(command)
+                if hasattr(server, 'server_socket'):
+                    print("Server shutdown")
+                    server.shutdown(server.server_socket)
                 else:
-                    isSingleMode = True
-                    clear_screen()
-                    command = {"type": "clear"}
-                    server.broadcast(command)
-                    if hasattr(server, 'server_socket'):
-                        print("Server shutdown")
-                        server.shutdown(server.server_socket)
-                    else:
-                        print("Server socket not found.\n")
-                    print("Single function")
-                    single_function()
+                    print("Server socket not found.\n")
+                print("Single function")
 
-    finally:
-        button_processing = False
-        print("Button processing complete")
+                # multi_functionスレッドを止めて、single_functionスレッド立ち上げ
+                single_thread = threading.Thread(target=multi_function,args=server)
+                single_thread.daemon = True # メインが終われば終わる
+                single_thread.start()
+
+                button_processing = False
+                print("Button processing complete")
+
 
 if __name__ == '__main__':
      # 初期設定
@@ -706,14 +729,13 @@ if __name__ == '__main__':
     
 
     # ボタンのコールバックを設定
-    # gpio3のi2c機能を無効化しないとだめ。tofは他のピンに
-    GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=button_callback, bouncetime=200)
+    cb = pi.callback(BUTTON_PIN, pigpio.FALLING_EDGE, button_callback)
+    
+    single_thread = threading.Thread(target=multi_function,args=server)
+    single_thread.daemon = True # メインが終われば終わる
+    single_thread.start()
 
     
-    # 初期状態で single_function を実行
-    print("Starting with Single function")
-    single_function()
-
 """
     try:
         while True:

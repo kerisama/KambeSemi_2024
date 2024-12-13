@@ -17,12 +17,28 @@ import os
 
 import datetime
 
+
 # SPIバスを開く
 # 圧力
 spi = spidev.SpiDev()
 spi.open(1, 0)
 spi.max_speed_hz = 1000000
 
+# pigpioデーモンに接続し、piオブジェクトを作成
+pi = pigpio.pi()
+
+# SG90のピン設定
+SERVO_PIN = 23  # SG90
+pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
+
+# ボタンのGPIO設定
+BUTTON_PIN = 3
+pi.set_mode(BUTTON_PIN, pigpio.INPUT)
+# チャタリングを防ぐためデバウンスを50msに
+pi.set_glitch_filter(BUTTON_PIN, 50000)
+
+# Create a VL53L0X object
+tof = VL53L0X.VL53L0X()
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -38,23 +54,6 @@ Y_OUT = DISPLAY_Y - 7
 # ToFセンサの誤差(mm)
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
 DISTANCE_ERROR = 30
-
-
-
-# pigpioデーモンに接続し、piオブジェクトを作成
-pi = pigpio.pi()
-
-# SG90のピン設定
-SERVO_PIN = 23  # SG90
-pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
-
-# ボタンのGPIO設定
-BUTTON_PIN = 3
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(BUTTON_PIN, GPIO.IN)
-
-# Create a VL53L0X object
-tof = VL53L0X.VL53L0X()
 
 # Matrix setting
 MATRIX_WIDTH = 16
@@ -83,23 +82,27 @@ CIRCLE_WIDTH = 5
 PORT = 5000
 
 
+def quitting():
+    print("Shutting down...")
+    os.system("sudo shutdown now")
 
 class MultiClientServer:
     def __init__(self, port: int = PORT):
         self.host = '0.0.0.0'
         self.port = port
+        self.server_socket: socket.socket = None  # サーバーソケットをインスタンス変数として保持
         self.clients: Dict[Tuple[int, int], socket.socket] = {}  # {(row, column): socket}
 
     def start_server(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((self.host, self.port))
-        server_socket.listen(5)
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(5)
         print(f"Master server listening on port {self.port}\n")
 
         try:
             while True:
-                client_socket, address = server_socket.accept()
+                client_socket, address = self.server_socket.accept()
                 print(f"New connection from {address}")
 
                 client_thread = threading.Thread(
@@ -111,7 +114,7 @@ class MultiClientServer:
         except KeyboardInterrupt:
             print("\nShutting down server...")
         finally:
-            self.shutdown(server_socket)
+            self.shutdown()
 
     def handle_client(self, client_socket: socket.socket):
         try:
@@ -171,12 +174,13 @@ class MultiClientServer:
                 print(f"Removed client at position: {position}")
                 break
 
-    def shutdown(self, server_socket):
+    def shutdown(self):
         """すべてのクライアントとサーバーソケットを閉じる"""
         for client_socket in self.clients.values():
             client_socket.close()
-        server_socket.close()
-        print("Server shutdown complete")
+        if self.server_socket:
+            self.server_socket.close()
+            print("Server shutdown complete")
 
 
 # 圧力読み取りにつかう関数
@@ -248,7 +252,7 @@ def find_pos(timing):
     valInit.SvDeg = 0
     set_angle(valInit.SvDeg)
 
-    print(timing)
+    #print(timing)
     time.sleep(0.1)
 
     # 配列の初期化
@@ -261,7 +265,7 @@ def find_pos(timing):
     for i in range(0, 91, DEGREE_CYCLE):  # 0~90度で増加量はDEGREE_CYCLE
         valInit.SvDeg = i
         set_angle(valInit.SvDeg)  # サーボを回転
-        print(valInit.SvDeg)
+        #print(valInit.SvDeg)
         
         # ToFセンサで測距
         distance = tof.get_distance()
@@ -297,8 +301,8 @@ def find_pos(timing):
                     count = 0
                 if count == 5:  # 5度連続で範囲外ならforをぬける
                     break
-        #time.sleep(timing / 1000000.00)
-        time.sleep(0.1)
+        time.sleep(timing / 1000000.00)
+
 
     # 余分に記録した末尾5個のリストを削除
     del pointlist[-5:]
@@ -334,7 +338,7 @@ def clear_screen():
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
-        print("a")
+        print("light gathering...")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:
@@ -465,224 +469,194 @@ def multi_animation(server, x, y, data_total):
 
 # 単体機能メイン
 def single_function():
-    try:
+    global isSingleMode
+
+    while True:
+        # 4つの圧力センサで重さ測定
+        # 圧力ループ中に複数機能に切り替えができる
         while True:
-            # 4つの圧力センサで重さ測定
-            # 圧力ループ中に複数機能に切り替えができる
-            while True:
-                """
-                # 複数機能ボタンおされたらreturn False
-                """
-                # 圧力の合計データの初期化
-                data_total = 0
-                # ４箇所の圧力を測定
-                for i in range(4):
-                    # センサのチャンネルの切り替え
-                    data = ReadChannel(i)
-                    data_total += data
-                    print("channel: %d" % (i))
-                    print("A/D Converter: {0}".format(data))
-                    volts = ConvertVolts(data,3)
-                    print("Volts: {0}".format(volts))
-                # ４つの圧力の合計値(通信する変数1:data_total)
-                print("Data total: {0}\n".format(data_total))
-                data_total = 2000 # デバック用圧力合計値
-                # 一定以下の圧力になったら抜ける
-                if data_total <= 3600:
-                    if data_total < 1800:
-                        MP3_PATH = 'sample1.mp3'
-                    else:
-                        MP3_PATH = 'sample2.mp3'
-                        break
-                    
-                    
-            """
-            #os.system("amixer sset Master on")
-            print()
-            # 音を鳴らす
-            #subprocess.Popen(['aplay', 'test.wav'])
-            time.sleep(3)
-            args =  ['kill', str(process.pid)]
-            subprocess.Popen(args)
-            #os.system("amixer sset Master off")
-            print()
-            """
-                    
-            # ToFセンサとサーボで物体の位置特定
-            print("find position of object")
-            target_x, target_y = find_pos(timing)
-            print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-            # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
-            target_x /= 10 # mmからcmに変換
-            target_y /= 10 # mmからcmに変換
-
-            print(f"Target position: ({target_x}, {target_y})")
-            # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
-
-            # LEDマトリックス
-            # Generate multiple random starting points and their colors
-            points = []
-            # 圧力の値から生成する点の数を設定
-            generated_points = int((10000 - data_total) / 700)
-            print("generated points: %d\n" % (generated_points))
-            for _ in range(generated_points):  # Number of points
-                x = random.randint(0, MATRIX_WIDTH - 1)
-                y = random.randint(0, MATRIX_HEIGHT - 1)
-                color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                points.append((x, y, color))
-
-            # Move all points toward the target simultaneously
-            print("update position start")
-            update_positions(points, target_x, target_y, strip, speed=0.1)
-            print("update position end")
-
-            # Clear the matrix
-            clear_screen()
+            # 複数機能に切り替わったら
+            if isSingleMode == False:
+                clear_screen()
+                return
+            
+            # 圧力の合計データの初期化
+            data_total = 0
+            # ４箇所の圧力を測定
+            for i in range(4):
+                # センサのチャンネルの切り替え
+                data = ReadChannel(i)
+                data_total += data
+                print("channel: %d" % (i))
+                print("A/D Converter: {0}".format(data))
+                volts = ConvertVolts(data,3)
+                print("Volts: {0}".format(volts))
+            # ４つの圧力の合計値(通信する変数1:data_total)
+            print("Data total: {0}\n".format(data_total))
+            data_total = 2000 # デバック用圧力合計値
+            # 一定以下の圧力になったら抜ける
+            if data_total <= 3600:
+                if data_total < 1800:
+                    MP3_PATH = 'sample1.mp3'
+                else:
+                    MP3_PATH = 'sample2.mp3'
+                    break
+                
+                
+        """
+        #os.system("amixer sset Master on")
+        print()
+        # 音を鳴らす
+        #subprocess.Popen(['aplay', 'test.wav'])
+        #subprocess.Popen(['mpg321', 'sample.mp3'])
+        #subprocess.Popen(['mpg321', 'MP3_PATH'])
+        time.sleep(3)
+        #os.system("amixer sset Master off")
+        print()
+        """
+                
+        # ToFセンサとサーボで物体の位置特定
+        print("find position of object")
+        target_x, target_y = find_pos(timing)
+        print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-    finally:
-        # 圧力センサに関するものを閉じる
-        spi.close()
-        # ToFストップ
-        tof.stop_ranging()
-        # Clear on exit
+        # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
+        target_x /= 10 # mmからcmに変換
+        target_y /= 10 # mmからcmに変換
+
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        if target_x < 0 or target_y < 0:
+            continue
+        target_x, target_y = int(target_x), int(target_y)
+        print(f"Target position: ({target_x}, {target_y})")
+
+        # LEDマトリックス
+        # Generate multiple random starting points and their colors
+        points = []
+        # 圧力の値から生成する点の数を設定
+        generated_points = int((10000 - data_total) / 700)
+        print("generated points: %d\n" % (generated_points))
+        for _ in range(generated_points):  # Number of points
+            x = random.randint(0, MATRIX_WIDTH - 1)
+            y = random.randint(0, MATRIX_HEIGHT - 1)
+            color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+            points.append((x, y, color))
+
+        # Move all points toward the target simultaneously
+        print("update position start")
+        update_positions(points, target_x, target_y, strip, speed=0.1)
+        print("update position end\n")
+
+        # Clear the matrix
         clear_screen()
-        # システム終了
-        sys.exit(0)
+        
+    
+
+        
 
 
 # 複数機能メイン
 def multi_function(server):
-    
-    try:
+    global isSingleMode
+
+    while True:
+        # 4つの圧力センサで重さ測定
         while True:
-            
-            # 4つの圧力センサで重さ測定
-            # 圧力ループ中に複数機能に切り替えができる
-            while True:
-                # 圧力の合計データの初期化
-                data_total = 0
-                # ４箇所の圧力を測定
-                for i in range(4):
-                    # センサのチャンネルの切り替え
-                    data = ReadChannel(i)
-                    data_total += data
-                    print("channel: %d" % (i))
-                    print("A/D Converter: {0}".format(data))
-                    volts = ConvertVolts(data,3)
-                    print("Volts: {0}".format(volts))
-                # ４つの圧力の合計値(通信する変数1:data_total)
-                print("Data total: {0}\n".format(data_total))
-                data_total = 2500 # デバック用圧力合計値
-                # 一定以下の圧力になったら抜ける
-                if data_total <= 3600:
-                    if data_total < 1800:
-                        MP3_PATH = 'sample1.mp3'
-                    else:
-                        MP3_PATH = 'sample2.mp3'
-                        break
-                    
-                    
-            """
-            #os.system("amixer sset Master on")
-            print()
-            # 音を鳴らす
-            #subprocess.Popen(['aplay', 'test.wav'])
-            time.sleep(3)
-            args =  ['kill', str(process.pid)]
-            subprocess.Popen(args)
-            #os.system("amixer sset Master off")
-            print()
-            """
-                    
-            # ToFセンサとサーボで物体の位置特定
-            print("find position of object")
-            target_x, target_y = find_pos(timing)
-            #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-            # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
-            target_x /= 10 # mmからcmに変換
-            target_y /= 10 # mmからcmに変換
+            # 単体機能に切り替わったら
+            if isSingleMode == True:
+                clear_screen()
+                command = {"type": "multiend"}
+                server.broadcast(command)
+                return
 
-            print(f"Target position: ({target_x}, {target_y})")
-            target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
-            target_x, target_y = int(target_x), int(target_y)
-            multi_animation(server, target_x, target_y, data_total)
-            time.sleep(5)
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-    finally:
-        # 圧力センサに関するものを閉じる
-        spi.close()
-        # ToFストップ
-        tof.stop_ranging()
-        # 終了 (円の削除)
-        clear_screen()
-        command = {"type": "clear"}
-        server.broadcast(command)
-        if hasattr(server, 'server_socket'):
-            print("Server shutdown")
-            server.shutdown(server.server_socket)
-        else:
-            print("Server socket not found.")
-        # システム終了
-        sys.exit(0)
-
-button_processing = False
-isSingleMode = False
-
-def button_callback(channel):
-    global button_processing
-
-    if button_processing:
-        return  # 処理中なら何もしない
-    button_processing = True
-
-    try:
-        if GPIO.input(BUTTON_PIN) == GPIO.LOW:  # ボタンが押されたとき
-            print("Button pressed")  # デバッグ用メッセージ
-            start_time = time.time()  # ボタンが押された時間を記録
-
-            while GPIO.input(BUTTON_PIN) == GPIO.LOW:
-                pass  # ボタンが押されている間ループ
-
-            press_duration = time.time() - start_time  # 押していた時間を記録
-
-            if press_duration >= 5:
-                # 5秒以上押すとシャットダウン
-                print("Shutting down...")
-                # quitting()
-
-            elif press_duration >= 1:
-                # 複数機能に切り替え
-                if isSingleMode == True:
-                    isSingleMode = False
-                    print("Multi function")
-                    # サーバーのスレッドを立ち上げてサーバーをつくる
-                    server = MultiClientServer()
-                    server_thread = threading.Thread(target=server.start_server)
-                    server_thread.daemon = True # メインが終われば終わる
-                    server_thread.start()
-                    multi_function(server)
-                # 単体機能に切り替え
+            # 圧力の合計データの初期化
+            data_total = 0
+            # ４箇所の圧力を測定
+            for i in range(4):
+                # センサのチャンネルの切り替え
+                data = ReadChannel(i)
+                data_total += data
+                print("channel: %d" % (i))
+                print("A/D Converter: {0}".format(data))
+                volts = ConvertVolts(data,3)
+                print("Volts: {0}".format(volts))
+            # ４つの圧力の合計値(通信する変数1:data_total)
+            print("Data total: {0}\n".format(data_total))
+            data_total = 2500 # デバック用圧力合計値
+            # 一定以下の圧力になったら抜ける
+            if data_total <= 3600:
+                if data_total < 1800:
+                    MP3_PATH = 'sample1.mp3'
                 else:
-                    isSingleMode = True
-                    clear_screen()
-                    command = {"type": "clear"}
-                    server.broadcast(command)
-                    if hasattr(server, 'server_socket'):
-                        print("Server shutdown")
-                        server.shutdown(server.server_socket)
-                    else:
-                        print("Server socket not found.\n")
-                    print("Single function")
-                    single_function()
+                    MP3_PATH = 'sample2.mp3'
+                    break
+                
+                
+        """
+        #os.system("amixer sset Master on")
+        print()
+        # 音を鳴らす
+        #subprocess.Popen(['aplay', 'test.wav'])
+        #subprocess.Popen(['mpg321', 'sample.mp3'])
+        #subprocess.Popen(['mpg321', 'MP3_PATH'])
+        time.sleep(3)
+        #os.system("amixer sset Master off")
+        print()
+        """
+                
+        # ToFセンサとサーボで物体の位置特定
+        print("find position of object")
+        target_x, target_y = find_pos(timing)
+        #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+        
+        # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
+        target_x /= 10 # mmからcmに変換
+        target_y /= 10 # mmからcmに変換
+ 
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        if target_x < 0 or target_y < 0:
+            continue
+        target_x, target_y = int(target_x), int(target_y)
+        print(f"Target position: ({target_x}, {target_y})")
 
-    finally:
-        button_processing = False
-        print("Button processing complete")
+        multi_animation(server, target_x, target_y, data_total)
+        time.sleep(5) # デバッグ用
+
+        
+
+
+
+def button_callback(gpio, level, tick):
+    global pressed_time, released_time, isSingleMode
+
+    #print(f"Button pressed! GPIO: {gpio}, Level: {level}, Tick: {tick}")
+
+    if level == 0:  # ボタンが押されたとき  # ボタンが押されたとき
+        pressed_time = time.time()  # ボタンが押された時間を記録
+
+    elif level == 1:
+        released_time = time.time()
+        press_duration = released_time - pressed_time  # 押していた時間を記録
+        print(f"#####Button press duration: {press_duration:.2f} second#####")
+
+        if press_duration >= 5:
+            # 5秒以上押すとシャットダウン
+            quitting()
+
+
+        elif press_duration >= 0.1:
+            # 複数機能に切り替え
+            if isSingleMode == True:
+                isSingleMode = False 
+                print(f"isSingleMode = {isSingleMode}\n")               
+            # 単体機能に切り替え
+            else:
+                isSingleMode = True
+                print(f"isSingleMode = {isSingleMode}\n")   
 
 if __name__ == '__main__':
+    isSingleMode = True
+    
      # 初期設定
     valInit()  # 変数の初期化
 
@@ -703,22 +677,42 @@ if __name__ == '__main__':
     
     clear_screen()
 
-    
+    pressed_time = 0
+    released_time = 0
 
     # ボタンのコールバックを設定
-    # gpio3のi2c機能を無効化しないとだめ。tofは他のピンに
-    GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=button_callback, bouncetime=200)
+    cb = pi.callback(BUTTON_PIN, pigpio.EITHER_EDGE, button_callback)
 
+    server = MultiClientServer()
+    # サーバーのスレッドを立ち上げてサーバーをつくる
+    server_thread = threading.Thread(target=server.start_server)
+    server_thread.daemon = True # メインが終われば終わる
+    server_thread.start()
     
-    # 初期状態で single_function を実行
-    print("Starting with Single function")
-    single_function()
-
-"""
     try:
         while True:
-            time.sleep(0.5)  # 少し待つことでCPU使用率を低減
+            # 単体機能
+            if isSingleMode:
+                print("-------------------------Single Mode Start-----------------------")
+                single_function()
+                print("-----------------------------------------------------------------\n")
+            # 複数機能
+            else:
+                print("--------------------------Multi Mode Start-----------------------")
+                multi_function(server)
+                print("-----------------------------------------------------------------\n")
     except KeyboardInterrupt:
-        print("Exiting...")
-        GPIO.cleanup()  # 終了時にGPIO設定をクリアして警告を避ける
-        """
+        print("KeyboardInterrupt")
+    finally:
+        # コールバックを解除して終了
+        cb.cancel()
+        pi.stop()
+        # 圧力センサに関するものを閉じる
+        spi.close()
+        # ToFストップ
+        tof.stop_ranging()
+        # Clear on exit
+        clear_screen()
+        server.shutdown()
+        # システム終了
+        sys.exit(0)
