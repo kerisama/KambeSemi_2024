@@ -95,7 +95,7 @@ def quitting():
     server.shutdown()
     # システム終了
     print("This Raspberry Pi shutdown")
-    os.system("sudo shutdown now")
+    os.system("sudo shutdown -h now")
 
 class MultiClientServer:
     def __init__(self, port: int = PORT):
