@@ -83,7 +83,18 @@ PORT = 5000
 
 
 def quitting():
-    print("Shutting down...")
+    # コールバックを解除して終了
+    cb.cancel()
+    pi.stop()
+    # 圧力センサに関するものを閉じる
+    spi.close()
+    # ToFストップ
+    tof.stop_ranging()
+    # Clear on exit
+    clear_screen()
+    server.shutdown()
+    # システム終了
+    print("This Raspberry Pi shutdown")
     os.system("sudo shutdown now")
 
 class MultiClientServer:
