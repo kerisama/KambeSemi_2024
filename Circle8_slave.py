@@ -92,7 +92,8 @@ def quitting():
     tof.stop_ranging()
     # Clear on exit
     clear_screen()
-    server.shutdown()
+    # server.shutdown()
+
     # システム終了
     print("This Raspberry Pi shutdown")
     os.system("sudo shutdown -h now")
@@ -558,10 +559,10 @@ def multi_slave_function():
                 if isSingleMode == True:
                     clear_screen()
                     command = {"type": "isSingle"}
-                    server.broadcast(command)
-                    if hasattr(server, 'server_socket'):
+                    master_connection.broadcast(command)
+                    if hasattr(master_connection, 'server_socket'):
                         print("Server shutdown")
-                        server.shutdown(server.server_socket)
+                        master_connection.close_connection()
                     else:
                         print("Server socket not found.")
                     return True
@@ -723,6 +724,7 @@ if __name__ == '__main__':
         tof.stop_ranging()
         # Clear on exit
         clear_screen()
-        server.shutdown()
+        # master_connection.close_connection()
+
         # システム終了
         sys.exit(0)
