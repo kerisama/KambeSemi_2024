@@ -505,34 +505,27 @@ def single_function():
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            #data_total = 2000 # デバック用圧力合計値
+            data_total = 2000 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= 1500:
-                if 1500 <= data_total < 1800:
+            if data_total <= 3600:
+                if data_total < 1800:
                     MP3_PATH = 'sample1.mp3'
-                elif 1800 <= data_total < 2100:
+                else:
                     MP3_PATH = 'sample2.mp3'
-                elif 2100 <= data_total < 2400:
-                    MP3_PATH = 'sample3.mp3'
-                elif 2400 <= data_total < 2700:
-                    MP3_PATH = 'sample4.mp3'
-                elif 2700 <= data_total:
-                    MP3_PATH = 'sample5.mp3'
-                break
-            time.sleep(0.5)
+                    break
                 
                 
-
+        """
         #os.system("amixer sset Master on")
         print()
         # 音を鳴らす
         #subprocess.Popen(['aplay', 'test.wav'])
-        subprocess.Popen(['mpg321', MP3_PATH])
+        #subprocess.Popen(['mpg321', 'sample.mp3'])
         #subprocess.Popen(['mpg321', 'MP3_PATH'])
         time.sleep(3)
         #os.system("amixer sset Master off")
         print()
-
+        """
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
@@ -543,7 +536,7 @@ def single_function():
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
         if target_x < 0 or target_y < 0:
             continue
         target_x, target_y = int(target_x), int(target_y)
@@ -599,15 +592,15 @@ def multi_function(server):
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            #data_total = 2500 # デバック用圧力合計値
+            data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= 1500:
+            if data_total <= 3600:
                 if data_total < 1800:
                     MP3_PATH = 'sample1.mp3'
                 else:
                     MP3_PATH = 'sample2.mp3'
-                break
-            time.sleep(0.5)
+                    break
+                
                 
         """
         #os.system("amixer sset Master on")
@@ -630,7 +623,7 @@ def multi_function(server):
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
  
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         if target_x < 0 or target_y < 0:
             continue
         target_x, target_y = int(target_x), int(target_y)
