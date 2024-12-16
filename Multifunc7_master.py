@@ -128,8 +128,9 @@ class MultiClientServer:
             self.shutdown()
 
     def handle_client(self, client_socket: socket.socket):
+        global isSingleMode
         try:
-            while True:
+            while isSingleMode == False:
                 data = client_socket.recv(1024)
                 if not data:
                     break
@@ -576,8 +577,6 @@ def multi_function(server):
             # 単体機能に切り替わったら
             if isSingleMode == True:
                 clear_screen()
-                command = {"type": "multiend"}
-                server.broadcast(command)
                 return
 
             # 圧力の合計データの初期化
@@ -662,6 +661,8 @@ def button_callback(gpio, level, tick):
                 print(f"isSingleMode = {isSingleMode}\n")               
             # 単体機能に切り替え
             else:
+                command = {"type": "multiend"}
+                server.broadcast(command)
                 isSingleMode = True
                 print(f"isSingleMode = {isSingleMode}\n")   
 
