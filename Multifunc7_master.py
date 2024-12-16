@@ -509,15 +509,15 @@ def single_function():
             # 一定以下の圧力になったら抜ける
             if data_total >= 1500:
                 if 1500 <= data_total < 1800:
-                    MP3_PATH = 'sample1.mp3'
+                    MP3_PATH = 'music1.mp3'
                 elif 1800 <= data_total < 2100:
-                    MP3_PATH = 'sample2.mp3'
+                    MP3_PATH = 'music2.mp3'
                 elif 2100 <= data_total < 2400:
-                    MP3_PATH = 'sample3.mp3'
+                    MP3_PATH = 'music3.mp3'
                 elif 2400 <= data_total < 2700:
-                    MP3_PATH = 'sample4.mp3'
+                    MP3_PATH = 'music4.mp3'
                 elif 2700 <= data_total:
-                    MP3_PATH = 'sample5.mp3'
+                    MP3_PATH = 'music5.mp3'
                 break
             time.sleep(0.5)
                 
