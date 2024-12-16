@@ -40,6 +40,10 @@ pi.set_glitch_filter(BUTTON_PIN, 50000)
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
 
+# 圧力合計の最小値
+DATA_TOTAL_MIN = 1500
+DATA_TOTAL_INTERVAL = 300
+
 # 周期ごとの度数
 DEGREE_CYCLE = 1
 # ディスプレイの大きさ(mm)
@@ -507,16 +511,16 @@ def single_function():
             print("Data total: {0}\n".format(data_total))
             #data_total = 2000 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= 1500:
-                if 1500 <= data_total < 1800:
+            if data_total >= DATA_TOTAL_MIN:
+                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
                     MP3_PATH = 'music1.mp3'
-                elif 1800 <= data_total < 2100:
+                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
                     MP3_PATH = 'music2.mp3'
-                elif 2100 <= data_total < 2400:
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3):
                     MP3_PATH = 'music3.mp3'
-                elif 2400 <= data_total < 2700:
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4):
                     MP3_PATH = 'music4.mp3'
-                elif 2700 <= data_total:
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
                     MP3_PATH = 'music5.mp3'
                 break
             time.sleep(0.5)
@@ -527,9 +531,8 @@ def single_function():
         print()
         # 音を鳴らす
         #subprocess.Popen(['aplay', 'test.wav'])
-        subprocess.Popen(['mpg321', MP3_PATH])
+        
         #subprocess.Popen(['mpg321', 'MP3_PATH'])
-        time.sleep(3)
         #os.system("amixer sset Master off")
         print()
 
@@ -560,6 +563,10 @@ def single_function():
             y = random.randint(0, MATRIX_HEIGHT - 1)
             color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
             points.append((x, y, color))
+
+        print()
+        subprocess.Popen(['mpg321', MP3_PATH])
+        print()
 
         # Move all points toward the target simultaneously
         print("update position start")
@@ -601,25 +608,20 @@ def multi_function(server):
             print("Data total: {0}\n".format(data_total))
             #data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= 1500:
-                if data_total < 1800:
-                    MP3_PATH = 'sample1.mp3'
-                else:
-                    MP3_PATH = 'sample2.mp3'
+            if data_total >= DATA_TOTAL_MIN:
+                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
+                    MP3_PATH = 'music1.mp3'
+                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
+                    MP3_PATH = 'music2.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3):
+                    MP3_PATH = 'music3.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4):
+                    MP3_PATH = 'music4.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
+                    MP3_PATH = 'music5.mp3'
                 break
             time.sleep(0.5)
-                
-        """
-        #os.system("amixer sset Master on")
-        print()
-        # 音を鳴らす
-        #subprocess.Popen(['aplay', 'test.wav'])
-        #subprocess.Popen(['mpg321', 'sample.mp3'])
-        #subprocess.Popen(['mpg321', 'MP3_PATH'])
-        time.sleep(3)
-        #os.system("amixer sset Master off")
-        print()
-        """
+            
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
@@ -636,6 +638,10 @@ def multi_function(server):
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
+        print()
+        subprocess.Popen(['mpg321', MP3_PATH])
+        print()
+        
         multi_animation(server, target_x, target_y, data_total)
         time.sleep(5) # デバッグ用
 
