@@ -67,12 +67,14 @@ LED_CHANNEL = 0
 MASTER_IP = "192.168.10.60"
 MASTER_PORT = 5000
 
+
 # スレーブの列・行番号 (マスターを0,0とする)
 SLAVE_ROWS = 1  # 横方向
 SLAVE_COLS = 0  # 縦方向
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
+SLAVE_SPACE = 1.8
 
 # Matrix setup
 MATRIX_GLOBAL_WIDTH = (SLAVE_ROWS + 1) * LED_PER_PANEL
@@ -607,18 +609,7 @@ def multi_slave_function(master_connection: MasterConnection):
                 break
             time.sleep(0.5)
                 
-                
-        """
-        #os.system("amixer sset Master on")
-        print()
-        # 音を鳴らす
-        #subprocess.Popen(['aplay', 'test.wav'])
-        time.sleep(3)
-        args =  ['kill', str(process.pid)]
-        subprocess.Popen(args)
-        #os.system("amixer sset Master off")
-        print()
-        """
+
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
@@ -627,9 +618,11 @@ def multi_slave_function(master_connection: MasterConnection):
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
-
-        print(f"Target position: ({target_x}, {target_y})")
         # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        # サーボ分の筐体と筐体の間をy座標に足す
+        target_y += SLAVE_SPACE * SLAVE_COLS
+
+        print(f"Global Target position: ({target_x}, {target_y})")
         target_x, target_y = int(target_x), int(target_y)
 
         # 12/17 尾崎 音再生
@@ -648,7 +641,7 @@ def multi_slave_function(master_connection: MasterConnection):
         }
         master_connection.send_to_master(sensor_data)
 
-        time.sleep(5) # デバッグ用
+        #time.sleep(5) # デバッグ用
 
         
 
