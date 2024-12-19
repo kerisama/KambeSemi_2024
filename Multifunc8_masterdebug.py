@@ -545,7 +545,7 @@ def single_function():
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
@@ -631,7 +631,7 @@ def multi_function(server):
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
  
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
