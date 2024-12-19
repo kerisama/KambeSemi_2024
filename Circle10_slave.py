@@ -84,7 +84,7 @@ MATRIX_GLOBAL_HEIGHT = (SLAVE_COLS + 1) * LED_PER_PANEL
 CIRCLE_WIDTH = 5
 
 # 圧力合計の最小値
-DATA_TOTAL_MIN = 1500
+DATA_TOTAL_MIN = 2000
 DATA_TOTAL_INTERVAL = 300
 
 def quitting():
@@ -502,7 +502,7 @@ def single_function():
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            data_total = 2000 # デバック用圧力合計値
+            #data_total = 2000 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
             if data_total >= DATA_TOTAL_MIN:
                 if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
@@ -533,6 +533,7 @@ def single_function():
 
         print(f"Target position: ({target_x}, {target_y})")
         # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        target_x, target_y = int(target_x), int(target_y)
 
         # LEDマトリックス
         # Generate multiple random starting points and their colors
@@ -601,7 +602,7 @@ def multi_slave_function(master_connection: MasterConnection):
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            data_total = 2500 # デバック用圧力合計値
+            #data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
             if data_total >= DATA_TOTAL_MIN:
                 if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
