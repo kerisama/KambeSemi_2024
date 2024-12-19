@@ -379,7 +379,7 @@ def zigzag_transform(x, y, width=16):
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
-        print("a")
+        print("light gathering...")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:

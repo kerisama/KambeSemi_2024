@@ -379,7 +379,7 @@ def zigzag_transform(x, y, width=16):
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
-        print("a")
+        print("light gathering...")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:
@@ -524,14 +524,14 @@ def single_function():
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
-        if target_x < 0 or target_y < 0:
-            continue
+        
+        #if target_x < 0 or target_y < 0:
+        #    continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
-
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
         
         print(f"Target position: ({target_x}, {target_y})")
         target_x, target_y = int(target_x), int(target_y)
@@ -549,7 +549,7 @@ def single_function():
             points.append((x, y, color))
 
         print()
-        subprocess.Popen(['mpg321',MP3_PATH])
+        #subprocess.Popen(['mpg321',MP3_PATH])
         print()
 
         # Move all points toward the target simultaneously
@@ -626,9 +626,9 @@ def multi_slave_function(master_connection: MasterConnection):
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
-        if target_x < 0 or target_y < 0:
-            continue
+        
+        #if target_x < 0 or target_y < 0:
+        #    continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
@@ -636,11 +636,12 @@ def multi_slave_function(master_connection: MasterConnection):
         # サーボ分の筐体と筐体の間をy座標に足す
         target_y += SLAVE_SPACE * SLAVE_COLS
 
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         print(f"Global Target position: ({target_x}, {target_y})")
         target_x, target_y = int(target_x), int(target_y)
 
         print()
-        subprocess.Popen(['mpg321',MP3_PATH])
+        #subprocess.Popen(['mpg321',MP3_PATH])
         print()
 
         # グローバル座標に変換

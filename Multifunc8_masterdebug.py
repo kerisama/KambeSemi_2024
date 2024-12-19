@@ -537,15 +537,16 @@ def single_function():
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
-        if target_x < 0 or target_y < 0:
-            continue
+        
+        #if target_x < 0 or target_y < 0:
+        #    continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
@@ -623,15 +624,16 @@ def multi_function(server):
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
-        if target_x < 0 or target_y < 0:
-            continue
+        #if target_x < 0 or target_y < 0:
+        #    continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
  
+
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
