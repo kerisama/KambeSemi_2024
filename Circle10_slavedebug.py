@@ -524,6 +524,7 @@ def single_function():
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
         if target_x < 0 or target_y < 0:
             continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
@@ -531,7 +532,7 @@ def single_function():
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        
         print(f"Target position: ({target_x}, {target_y})")
         target_x, target_y = int(target_x), int(target_y)
 
@@ -602,7 +603,7 @@ def multi_slave_function(master_connection: MasterConnection):
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            #data_total = 2500 # デバック用圧力合計値
+            data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
             if data_total >= DATA_TOTAL_MIN:
                 if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
@@ -625,6 +626,7 @@ def multi_slave_function(master_connection: MasterConnection):
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         if target_x < 0 or target_y < 0:
             continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
@@ -634,7 +636,6 @@ def multi_slave_function(master_connection: MasterConnection):
         # サーボ分の筐体と筐体の間をy座標に足す
         target_y += SLAVE_SPACE * SLAVE_COLS
 
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
         print(f"Global Target position: ({target_x}, {target_y})")
         target_x, target_y = int(target_x), int(target_y)
 
