@@ -88,6 +88,7 @@ DATA_TOTAL_MIN = 2000
 DATA_TOTAL_INTERVAL = 300
 
 def quitting():
+    master_connection.stop_connection()
     # コールバックを解除して終了
     cb.cancel()
     pi.stop()
@@ -151,12 +152,14 @@ class MasterConnection:
             print("> Not connected to master. Cannot send data.")
 
     def listen_for_master(self):
+        global isSingleMode
         """マスターからのデータをリッスン"""
         try:
             while self.running:
                 data = self.client_socket.recv(1024)
                 if not data:  # マスターが接続を切断
                     print("> Connection closed by master.")
+                    isSingleMode = True
                     break
                 try:
                     received_data = json.loads(data.decode())

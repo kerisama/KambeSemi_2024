@@ -88,6 +88,8 @@ DATA_TOTAL_MIN = 1500
 DATA_TOTAL_INTERVAL = 300
 
 def quitting():
+    global master_connection
+    master_connection.stop_connection()
     # コールバックを解除して終了
     cb.cancel()
     pi.stop()
