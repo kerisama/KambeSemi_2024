@@ -109,16 +109,24 @@ class MultiClientServer:
         self.clients: Dict[Tuple[int, int], socket.socket] = {}  # {(row, column): socket}
 
     def start_server(self):
+        global isSingleMode
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        print(f"Master server listening on port {self.port}\n")
+        print(f"> Master server listening on port {self.port}\n")
 
         try:
             while True:
                 client_socket, address = self.server_socket.accept()
-                print(f"New connection from {address}")
+
+                # isSingleMode が True の場合、接続を拒否
+                if isSingleMode:
+                    print(f"> Connection attempt from {address} rejected (isSingleMode is True)")
+                    client_socket.close()
+                    continue
+
+                print(f"> New connection from {address}")
 
                 client_thread = threading.Thread(
                     target=self.handle_client,
@@ -127,7 +135,7 @@ class MultiClientServer:
                 client_thread.daemon = True
                 client_thread.start()
         except KeyboardInterrupt:
-            print("\nShutting down server...")
+            print("\n> Shutting down server...")
         finally:
             self.shutdown()
 
@@ -145,19 +153,19 @@ class MultiClientServer:
                         # クライアントの位置情報を登録
                         position = tuple(received_data["position"].values())  # (row, column)
                         self.clients[position] = client_socket
-                        print(f"Registered client at position: {position}")
+                        print(f"> Registered client at position: {position}")
 
                     elif received_data["type"] == "sensor_data":
                         x = received_data["x"]
                         y = received_data["y"]
                         data_total = received_data["data_total"]
-                        print("multi_animation start")
+                        print("> multi_animation start")
                         multi_animation(self, x, y, data_total)
 
                 except json.JSONDecodeError:
-                    print("Failed to decode data from client")
+                    print("> Failed to decode data from client")
         except Exception as e:
-            print(f"Error handling client: {e}")
+            print(f"> Error handling client: {e}")
         finally:
             self.remove_client(client_socket)
 
@@ -167,27 +175,27 @@ class MultiClientServer:
         if position in self.clients:
             try:
                 self.clients[position].send(json.dumps(data).encode())
-                print(f"Sent to {position}: {data}")
+                print(f"> Sent to {position}: {data}")
             except Exception as e:
-                print(f"Failed to send to {position}: {e}")
+                print(f"> Failed to send to {position}: {e}")
         else:
-            print(f"No client at position {position}")
+            print(f"> No client at position {position}")
 
     def broadcast(self, data: dict):
         """すべてのクライアントにデータをブロードキャスト"""
         for position, client_socket in list(self.clients.items()):
             try:
                 client_socket.send(json.dumps(data).encode())
-                print(f"Broadcasted to {position}: {data}")
+                print(f"> Broadcasted to {position}: {data}")
             except Exception as e:
-                print(f"Failed to broadcast to {position}: {e}")
+                print(f"> Failed to broadcast to {position}: {e}")
 
     def remove_client(self, client_socket: socket.socket):
         """クライアントを削除"""
         for position, socket in list(self.clients.items()):
             if socket == client_socket:
                 del self.clients[position]
-                print(f"Removed client at position: {position}")
+                print(f"> Removed client at position: {position}")
                 break
 
     def shutdown(self):
@@ -196,7 +204,7 @@ class MultiClientServer:
             client_socket.close()
         if self.server_socket:
             self.server_socket.close()
-            print("Server shutdown complete")
+            print("> Server shutdown complete")
 
 
 # 圧力読み取りにつかう関数
@@ -524,17 +532,6 @@ def single_function():
                     MP3_PATH = 'music5.mp3'
                 break
             time.sleep(0.5)
-                
-                
-
-        #os.system("amixer sset Master on")
-        print()
-        # 音を鳴らす
-        #subprocess.Popen(['aplay', 'test.wav'])
-        
-        #subprocess.Popen(['mpg321', 'MP3_PATH'])
-        #os.system("amixer sset Master off")
-        print()
 
                 
         # ToFセンサとサーボで物体の位置特定
@@ -643,7 +640,7 @@ def multi_function(server):
         print()
         
         multi_animation(server, target_x, target_y, data_total)
-        time.sleep(5) # デバッグ用
+        #time.sleep(5) # デバッグ用
 
         
 

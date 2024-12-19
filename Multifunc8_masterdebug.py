@@ -40,10 +40,6 @@ pi.set_glitch_filter(BUTTON_PIN, 50000)
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
 
-# 圧力合計の最小値
-DATA_TOTAL_MIN = 1500
-DATA_TOTAL_INTERVAL = 300
-
 # 周期ごとの度数
 DEGREE_CYCLE = 1
 # ディスプレイの大きさ(mm)
@@ -109,6 +105,7 @@ class MultiClientServer:
         self.clients: Dict[Tuple[int, int], socket.socket] = {}  # {(row, column): socket}
 
     def start_server(self):
+        global isSingleMode
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
@@ -118,6 +115,13 @@ class MultiClientServer:
         try:
             while True:
                 client_socket, address = self.server_socket.accept()
+
+                # isSingleMode が True の場合、接続を拒否
+                if isSingleMode:
+                    print(f"Connection attempt from {address} rejected (isSingleMode is True)")
+                    client_socket.close()
+                    continue
+
                 print(f"New connection from {address}")
 
                 client_thread = threading.Thread(
@@ -509,46 +513,40 @@ def single_function():
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            #data_total = 2000 # デバック用圧力合計値
+            data_total = 2000 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= DATA_TOTAL_MIN:
-                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
-                    MP3_PATH = 'music1.mp3'
-                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
-                    MP3_PATH = 'music2.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3):
-                    MP3_PATH = 'music3.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4):
-                    MP3_PATH = 'music4.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
-                    MP3_PATH = 'music5.mp3'
-                break
-            time.sleep(0.5)
+            if data_total <= 3600:
+                if data_total < 1800:
+                    MP3_PATH = 'sample1.mp3'
+                else:
+                    MP3_PATH = 'sample2.mp3'
+                    break
                 
                 
-
+        """
         #os.system("amixer sset Master on")
         print()
         # 音を鳴らす
         #subprocess.Popen(['aplay', 'test.wav'])
-        
+        #subprocess.Popen(['mpg321', 'sample.mp3'])
         #subprocess.Popen(['mpg321', 'MP3_PATH'])
+        time.sleep(3)
         #os.system("amixer sset Master off")
         print()
-
+        """
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        if target_x < 0 or target_y < 0:
-            continue
-        #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
+        print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
+        if target_x < 0 or target_y < 0:
+            continue
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
@@ -563,10 +561,6 @@ def single_function():
             y = random.randint(0, MATRIX_HEIGHT - 1)
             color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
             points.append((x, y, color))
-
-        print()
-        subprocess.Popen(['mpg321', MP3_PATH])
-        print()
 
         # Move all points toward the target simultaneously
         print("update position start")
@@ -606,42 +600,43 @@ def multi_function(server):
                 print("Volts: {0}".format(volts))
             # ４つの圧力の合計値(通信する変数1:data_total)
             print("Data total: {0}\n".format(data_total))
-            #data_total = 2500 # デバック用圧力合計値
+            data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total >= DATA_TOTAL_MIN:
-                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
-                    MP3_PATH = 'music1.mp3'
-                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
-                    MP3_PATH = 'music2.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3):
-                    MP3_PATH = 'music3.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4):
-                    MP3_PATH = 'music4.mp3'
-                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
-                    MP3_PATH = 'music5.mp3'
-                break
-            time.sleep(0.5)
-            
+            if data_total <= 3600:
+                if data_total < 1800:
+                    MP3_PATH = 'sample1.mp3'
+                else:
+                    MP3_PATH = 'sample2.mp3'
+                    break
+                
+                
+        """
+        #os.system("amixer sset Master on")
+        print()
+        # 音を鳴らす
+        #subprocess.Popen(['aplay', 'test.wav'])
+        #subprocess.Popen(['mpg321', 'sample.mp3'])
+        #subprocess.Popen(['mpg321', 'MP3_PATH'])
+        time.sleep(3)
+        #os.system("amixer sset Master off")
+        print()
+        """
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        if target_x < 0 or target_y < 0:
-            continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
  
-        #target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        if target_x < 0 or target_y < 0:
+            continue
         target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
 
-        print()
-        subprocess.Popen(['mpg321', MP3_PATH])
-        print()
-        
         multi_animation(server, target_x, target_y, data_total)
         time.sleep(5) # デバッグ用
 

@@ -1,22 +1,17 @@
-# Circle5_slave
-import RPi.GPIO as GPIO
 import pigpio  # GPIO制御
+import math
+import random
 import socket
 import json
 import VL53L0X  # ToFセンサ
-from rpi_ws281x import PixelStrip, Color
-import random
-import time
-import math  # 極座標変換
 import threading
-from typing import Dict, Tuple
+from rpi_ws281x import PixelStrip, Color
+import time
+import datetime
 import sys
 import spidev # 圧力センサ
 import subprocess # 音声
 import os
-
-import datetime
-
 
 # SPIバスを開く
 # 圧力
@@ -29,16 +24,13 @@ pi = pigpio.pi()
 
 # SG90のピン設定
 SERVO_PIN = 23  # SG90
-pi.set_mode(SERVO_PIN, pigpio.OUTPUT)
+pi.set_mode(SERVO_PIN,pigpio.OUTPUT)
 
 # ボタンのGPIO設定
 BUTTON_PIN = 3
-pi.set_mode(BUTTON_PIN, pigpio.INPUT)
-# チャタリングを防ぐためデバウンスを50msに
+pi.set_mode(BUTTON_PIN,pigpio.INPUT)
+# チャタリング対策でデバウンスを50msに
 pi.set_glitch_filter(BUTTON_PIN, 50000)
-
-# Create a VL53L0X object
-tof = VL53L0X.VL53L0X()
 
 # 周期ごとの度数
 DEGREE_CYCLE = 1
@@ -55,32 +47,45 @@ Y_OUT = DISPLAY_Y - 7
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
 DISTANCE_ERROR = 30
 
+# Create a VL53L0X object
+tof = VL53L0X.VL53L0X()
+
 # Matrix setting
 MATRIX_WIDTH = 16
 MATRIX_HEIGHT = 16
 
-# LED configuration
-LED_COUNT = 256
+# LED設定
+LED_COUNT = 256  # 16x16
 LED_PIN = 10
 LED_FREQ_HZ = 800000
 LED_DMA = 10
 LED_BRIGHTNESS = 10
 LED_INVERT = False
-LED_PER_PANEL = 16
+LED_PER_PANEL = 16  # 列ごとのLED数 (16)
 LED_CHANNEL = 0
 
+MASTER_IP = "192.168.10.65"
+MASTER_PORT = 5000
+
+
+# スレーブの列・行番号 (マスターを0,0とする)
+SLAVE_ROWS = 1  # 横方向
+SLAVE_COLS = 0  # 縦方向
+# スレーブ1の担当領域
+SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
+SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
+SLAVE_SPACE = 1.8
+
 # Matrix setup
-MATRIX_ROWS = 1  # 横方向
-MATRIX_COLS = 1  # 縦方向
-MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
-MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
+MATRIX_GLOBAL_WIDTH = (SLAVE_ROWS + 1) * LED_PER_PANEL
+MATRIX_GLOBAL_HEIGHT = (SLAVE_COLS + 1) * LED_PER_PANEL
 
 # 円の幅
 CIRCLE_WIDTH = 5
 
-# 通信設定
-PORT = 5000
-
+# 圧力合計の最小値
+DATA_TOTAL_MIN = 1500
+DATA_TOTAL_INTERVAL = 300
 
 def quitting():
     # コールバックを解除して終了
@@ -92,108 +97,142 @@ def quitting():
     tof.stop_ranging()
     # Clear on exit
     clear_screen()
-    server.shutdown()
+    # server.shutdown()
+
     # システム終了
     print("This Raspberry Pi shutdown")
     os.system("sudo shutdown -h now")
 
-class MultiClientServer:
-    def __init__(self, port: int = PORT):
-        self.host = '0.0.0.0'
-        self.port = port
-        self.server_socket: socket.socket = None  # サーバーソケットをインスタンス変数として保持
-        self.clients: Dict[Tuple[int, int], socket.socket] = {}  # {(row, column): socket}
 
-    def start_server(self):
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(5)
-        print(f"Master server listening on port {self.port}\n")
 
+class MasterConnection:
+    def __init__(self, master_ip, master_port, row, column):
+        self.master_ip = master_ip
+        self.master_port = master_port
+        self.row = row
+        self.column = column
+        self.client_socket = None
+        self.listener_thread = None
+        self.running = False  # スレッドの実行状態
+        self.client_id = self.get_client_id()  # ユニークなクライアントIDを生成
+
+    def get_client_id(self):
+        """ユニークなクライアントIDを生成"""
+        return f"Device_{socket.gethostname()}"
+
+    def connect_to_master(self):
+        """マスターに接続"""
         try:
-            while True:
-                client_socket, address = self.server_socket.accept()
-                print(f"New connection from {address}")
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.master_ip, self.master_port))
+            print(f"> Connected to master at {self.master_ip}:{self.master_port}")
 
-                client_thread = threading.Thread(
-                    target=self.handle_client,
-                    args=(client_socket,)
-                )
-                client_thread.daemon = True
-                client_thread.start()
-        except KeyboardInterrupt:
-            print("\nShutting down server...")
-        finally:
-            self.shutdown()
+            # 接続時に初期データを送信
+            init_data = {
+                "type": "init",
+                "client_id": self.client_id,
+                "position": {"row": self.row, "column": self.column}
+            }
+            self.send_to_master(init_data)
+            return True
+        except socket.error as e:
+            print(f"> Connection error: {e}")
+            return False
 
-    def handle_client(self, client_socket: socket.socket):
-        global isSingleMode
+    def send_to_master(self, data):
+        """マスターにデータを送信"""
+        if self.is_connected():
+            try:
+                self.client_socket.send(json.dumps(data).encode())
+                print(f"> Sent to master: {data}\n")
+            except Exception as e:
+                print(f"> Error sending data to master: {e}")
+        else:
+            print("> Not connected to master. Cannot send data.")
+
+    def listen_for_master(self):
+        """マスターからのデータをリッスン"""
         try:
-            while isSingleMode == False:
-                data = client_socket.recv(1024)
-                if not data:
+            while self.running:
+                data = self.client_socket.recv(1024)
+                if not data:  # マスターが接続を切断
+                    print("> Connection closed by master.")
                     break
-
                 try:
                     received_data = json.loads(data.decode())
-                    if received_data["type"] == "init":
-                        # クライアントの位置情報を登録
-                        position = tuple(received_data["position"].values())  # (row, column)
-                        self.clients[position] = client_socket
-                        print(f"Registered client at position: {position}")
-
-                    elif received_data["type"] == "sensor_data":
-                        x = received_data["x"]
-                        y = received_data["y"]
-                        data_total = received_data["data_total"]
-                        print("multi_animation start")
-                        multi_animation(self, x, y, data_total)
-
+                    print(f"> Received from master: {received_data}")
+                    self.handle_command(received_data)
                 except json.JSONDecodeError:
-                    print("Failed to decode data from client")
+                    print("> Failed to decode data from master.")
         except Exception as e:
-            print(f"Error handling client: {e}")
+            print(f"> Listening error: {e}")
         finally:
-            self.remove_client(client_socket)
+            self.stop_connection()
 
-    def send_to_position(self, row: int, column: int, data: dict):
-        """特定の位置にデータを送信"""
-        position = (row, column)
-        if position in self.clients:
+    def handle_command(self, command):
+        """マスターからのコマンドを処理"""
+        global isSingleMode
+        if command["type"] == "draw":
+            x = command["x"]
+            y = command["y"]
+            colors = command["colors"]
+            max_radius = command["max_radius"]
+            # 描画処理を実行（スレッドでアニメーション）
+            animation_slave_thread = threading.Thread(target=animate_slave_circles, args=(x, y, colors, max_radius,))
+            animation_slave_thread.daemon = True  # メインが終われば終わる
+            animation_slave_thread.start()
+        elif command["type"] == "clear":
+            clear_screen()
+        elif command["type"] == "multiend":
+            isSingleMode = True
+
+    def is_connected(self):
+        """接続状態を確認"""
+        if self.client_socket:
             try:
-                self.clients[position].send(json.dumps(data).encode())
-                print(f"Sent to {position}: {data}")
-            except Exception as e:
-                print(f"Failed to send to {position}: {e}")
-        else:
-            print(f"No client at position {position}")
+                self.client_socket.send(b"")  # 空データを送信して確認
+                return True
+            except socket.error:
+                return False
+        return False
 
-    def broadcast(self, data: dict):
-        """すべてのクライアントにデータをブロードキャスト"""
-        for position, client_socket in list(self.clients.items()):
+    def start_connection(self):
+        """接続スレッドを開始"""
+        self.running = True
+        if not self.client_socket:
+            self.listener_thread = threading.Thread(target=self.run)
+            self.listener_thread.daemon = True
+            self.listener_thread.start()
+
+    def run(self):
+        """マスターとの接続を試みてデータをリッスン"""
+        if self.connect_to_master():
+            self.listen_for_master()
+
+    def stop_connection(self):
+        """接続を停止"""
+        self.running = False
+        if self.client_socket:
             try:
-                client_socket.send(json.dumps(data).encode())
-                print(f"Broadcasted to {position}: {data}")
+                self.client_socket.shutdown(socket.SHUT_RDWR) # ソケットの読み書き中止。これでlisten_for_masterのrecvがとまる
+                self.client_socket.close()
+                print("> Disconnected from master.")
             except Exception as e:
-                print(f"Failed to broadcast to {position}: {e}")
+                print(f"> Error closing connection: {e}")
+            self.client_socket = None  # ソケットをリセット
+        if threading.current_thread() != self.listener_thread and self.listener_thread and self.listener_thread.is_alive():
+            self.listener_thread.join()
+            print("> Listener thread stopped")
 
-    def remove_client(self, client_socket: socket.socket):
-        """クライアントを削除"""
-        for position, socket in list(self.clients.items()):
-            if socket == client_socket:
-                del self.clients[position]
-                print(f"Removed client at position: {position}")
-                break
 
-    def shutdown(self):
-        """すべてのクライアントとサーバーソケットを閉じる"""
-        for client_socket in self.clients.values():
-            client_socket.close()
-        if self.server_socket:
-            self.server_socket.close()
-            print("Server shutdown complete")
 
+
+
+def clear_screen():
+    """LEDマトリクスを消灯。"""
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
 
 # 圧力読み取りにつかう関数
 # MCP3008から値を読み取るメソッド
@@ -264,7 +303,6 @@ def find_pos(timing):
     valInit.SvDeg = 0
     set_angle(valInit.SvDeg)
 
-    #print(timing)
     time.sleep(0.1)
 
     # 配列の初期化
@@ -277,9 +315,9 @@ def find_pos(timing):
     for i in range(0, 91, DEGREE_CYCLE):  # 0~90度で増加量はDEGREE_CYCLE
         valInit.SvDeg = i
         set_angle(valInit.SvDeg)  # サーボを回転
-        #print(valInit.SvDeg)
-        
-        # ToFセンサで測距
+        # print(valInit.SvDeg)
+
+        # ToFセンサで測距S
         distance = tof.get_distance()
         # ToFセンサの誤差を引いて正確な値にする
         distance -= DISTANCE_ERROR
@@ -315,7 +353,6 @@ def find_pos(timing):
                     break
         time.sleep(timing / 1000000.00)
 
-
     # 余分に記録した末尾5個のリストを削除
     del pointlist[-5:]
     # print(pointlist)
@@ -331,26 +368,18 @@ def find_pos(timing):
 
     return res_x, res_y
 
-
-# LEDマトリックスに関する関数
-# 奇数列の反転
-def zigzag_transform(x, y):
-    if y % 2 == 1:  # Zigzag for odd rows
+def zigzag_transform(x, y, width=16):
+    """ジグザグ配列に変換する座標"""
+    if y % 2 == 1:
         x = LED_PER_PANEL - 1 - x
     return x, y
-
-# この筐体のLEDマトリックスを消灯
-def clear_screen():
-    for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(0, 0, 0))
-    strip.show()
 
 # 単体機能でつかう関数
 # Update positions of multiple points simultaneously
 # ターゲットポジションにたどり着くまで乱数で生成した位置から光をターゲットポジションに移動させる
 def update_positions(points, target_x, target_y, strip, speed):
     while points:
-        print("light gathering...")
+        print("a")
         # Update each point's position
         # それぞれのポイントの座標更新
         for point in points[:]:
@@ -396,7 +425,6 @@ def circle_pixels(xc, yc, radius):
     pixels = []
 
     while x <= y:
-
         for dx, dy in [(x, y), (y, x), (-x, y), (-y, x), (x, -y), (y, -x), (-x, -y), (-y, -x)]:
             if 0 <= xc + dx < MATRIX_GLOBAL_WIDTH and 0 <= yc + dy < MATRIX_GLOBAL_HEIGHT:
                 pixels.append((xc + dx, yc + dy))
@@ -408,90 +436,59 @@ def circle_pixels(xc, yc, radius):
         x += 1
     return pixels
 
-# マスターの描画
-def draw_frame(frame_pixels, color):
+# スレーブの描画
+def draw_slave(frame_pixels, color):
     # Draw a single frame of animation.
-    # この筐体の範囲内のものだけにする
-    master_pixels = [p for p in frame_pixels if p[0] < LED_PER_PANEL and p[1] < LED_PER_PANEL]
+    slave_pixels = [p for p in frame_pixels if
+                    SLAVE_ORIGIN_X <= p[0] < SLAVE_ORIGIN_X + 16 and SLAVE_ORIGIN_Y <= p[1] < SLAVE_ORIGIN_Y + 16]
 
-    # Draw master pixels
-    for x, y in master_pixels:
+    # Draw slave pixels
+    for x, y in slave_pixels:
+        # ローカル座標に変換
+        x -= SLAVE_ORIGIN_X
+        y -= SLAVE_ORIGIN_Y
+        # ジグザグ変換
         zigzag_x, zigzag_y = zigzag_transform(x, y)
         index = zigzag_y * LED_PER_PANEL + zigzag_x
         strip.setPixelColor(index, Color(color[0], color[1], color[2]))
-        #print(datetime.datetime.now())
     strip.show()
 
-    # print(f"Master: {master_pixels}")
-
-
-# 円の描画
-def animate_circles(xc, yc, colors, max_radius):
+def animate_slave_circles(xc, yc, colors, max_radius):
     radius = 0
     clear_radius = 0
-    
+    print("center of the circle: x:%d, y:%d" % (xc - SLAVE_ORIGIN_X, yc - SLAVE_ORIGIN_Y))
     # 円の描画
     while True:
         if clear_radius == max_radius:
             break
-        #print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
         if radius < max_radius:
             circle = circle_pixels(xc, yc, radius)
             color = colors[radius]
-
-            draw_frame(circle, color)
             
+            draw_slave(circle, color)
+
             radius += 1
-        
-        # 描画している円の幅がCIRCLE_WIDTH以上になったら真ん中から消していく
+
         if radius > CIRCLE_WIDTH:
-            clear_circle = circle_pixels(xc,yc,clear_radius)
+            clear_circle = circle_pixels(xc, yc, clear_radius)
             # 描画を消す
-            draw_frame(clear_circle,[0,0,0])
+            draw_slave(clear_circle, [0, 0, 0])
             clear_radius += 1
         time.sleep(0.1)
-
-# x,y座標、最大半径をブロードキャスト、マスターの描画
-def multi_animation(server, x, y, data_total):
-    colors = []
-    # 圧力値をもとに最大半径を決める
-    max_radius = int((4000 - data_total) / 100)
-
-    # 最大半径の最小値はCIRCLE_WIDTH + 1
-    if max_radius <= CIRCLE_WIDTH:
-        max_radius = CIRCLE_WIDTH + 1
-            
-    #x, y = random.randint(0, MATRIX_WIDTH - 1), random.randint(0, MATRIX_HEIGHT - 1)
-    #x, y = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
-    print("x:%d, y:%d. max_radius:%d" % (x, y, max_radius))
-
-    for i in range(max_radius):
-        color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-        colors.append(color)
-
-    # スレーブに送信
-    command = {"type": "draw", "x": x, "y": y, "colors": colors, "max_radius": max_radius}
-    server.broadcast(command)
-
-    # 円描画のスレッドを作成 argsはanimate_circlesの引数 x,y 受け取ったら
-    animation_thread = threading.Thread(target=animate_circles, args=(x,y,colors,max_radius,))
-    animation_thread.daemon = True # メインが終われば終わる
-    animation_thread.start()
-
 
 # 単体機能メイン
 def single_function():
     global isSingleMode
 
+
     while True:
         # 4つの圧力センサで重さ測定
         # 圧力ループ中に複数機能に切り替えができる
         while True:
-            # 複数機能に切り替わったら
             if isSingleMode == False:
                 clear_screen()
                 return
-            
+
             # 圧力の合計データの初期化
             data_total = 0
             # ４箇所の圧力を測定
@@ -507,40 +504,35 @@ def single_function():
             print("Data total: {0}\n".format(data_total))
             data_total = 2000 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total <= 3600:
-                if data_total < 1800:
-                    MP3_PATH = 'sample1.mp3'
-                else:
-                    MP3_PATH = 'sample2.mp3'
-                    break
+            if data_total >= DATA_TOTAL_MIN:
+                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
+                    MP3_PATH = 'music1.mp3'
+                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
+                    MP3_PATH = 'music2.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (
+                        DATA_TOTAL_INTERVAL * 3):
+                    MP3_PATH = 'music3.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (
+                        DATA_TOTAL_INTERVAL * 4):
+                    MP3_PATH = 'music4.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
+                    MP3_PATH = 'music5.mp3'
+                break
+            time.sleep(0.5)
                 
-                
-        """
-        #os.system("amixer sset Master on")
-        print()
-        # 音を鳴らす
-        #subprocess.Popen(['aplay', 'test.wav'])
-        #subprocess.Popen(['mpg321', 'sample.mp3'])
-        #subprocess.Popen(['mpg321', 'MP3_PATH'])
-        time.sleep(3)
-        #os.system("amixer sset Master off")
-        print()
-        """
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
-        print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-        
+        if target_x < 0 or target_y < 0:
+            continue
+        #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
 
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
-        if target_x < 0 or target_y < 0:
-            continue
-        target_x, target_y = int(target_x), int(target_y)
         print(f"Target position: ({target_x}, {target_y})")
+        # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2
 
         # LEDマトリックス
         # Generate multiple random starting points and their colors
@@ -554,28 +546,45 @@ def single_function():
             color = Color(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
             points.append((x, y, color))
 
+        print()
+        subprocess.Popen(['mpg321',MP3_PATH])
+        print()
+
         # Move all points toward the target simultaneously
         print("update position start")
         update_positions(points, target_x, target_y, strip, speed=0.1)
-        print("update position end\n")
+        print("update position end")
 
         # Clear the matrix
         clear_screen()
         
-    
 
         
 
 
 # 複数機能メイン
-def multi_function(server):
+def multi_slave_function(master_connection: MasterConnection):
     global isSingleMode
 
+    
+    # マスター接続を開始
+    master_connection.start_connection()
+    # 接続を待つ
+    time.sleep(1)
+
+    if master_connection.is_connected() == False:
+        # 単体機能にする
+        isSingleMode = True
+    
     while True:
+        
         # 4つの圧力センサで重さ測定
+        # 圧力ループ中に複数機能に切り替えができる
         while True:
             # 単体機能に切り替わったら
             if isSingleMode == True:
+                # 接続を切る
+                master_connection.stop_connection()
                 clear_screen()
                 return
 
@@ -594,43 +603,57 @@ def multi_function(server):
             print("Data total: {0}\n".format(data_total))
             data_total = 2500 # デバック用圧力合計値
             # 一定以下の圧力になったら抜ける
-            if data_total <= 3600:
-                if data_total < 1800:
-                    MP3_PATH = 'sample1.mp3'
-                else:
-                    MP3_PATH = 'sample2.mp3'
-                    break
+            if data_total >= DATA_TOTAL_MIN:
+                if DATA_TOTAL_MIN <= data_total < DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL:
+                    MP3_PATH = 'music1.mp3'
+                elif DATA_TOTAL_MIN + DATA_TOTAL_INTERVAL <= data_total < DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2):
+                    MP3_PATH = 'music2.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 2) <= data_total < DATA_TOTAL_MIN + (
+                        DATA_TOTAL_INTERVAL * 3):
+                    MP3_PATH = 'music3.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 3) <= data_total < DATA_TOTAL_MIN + (
+                        DATA_TOTAL_INTERVAL * 4):
+                    MP3_PATH = 'music4.mp3'
+                elif DATA_TOTAL_MIN + (DATA_TOTAL_INTERVAL * 4) <= data_total:
+                    MP3_PATH = 'music5.mp3'
+                break
+            time.sleep(0.5)
                 
-                
-        """
-        #os.system("amixer sset Master on")
-        print()
-        # 音を鳴らす
-        #subprocess.Popen(['aplay', 'test.wav'])
-        #subprocess.Popen(['mpg321', 'sample.mp3'])
-        #subprocess.Popen(['mpg321', 'MP3_PATH'])
-        time.sleep(3)
-        #os.system("amixer sset Master off")
-        print()
-        """
+
                 
         # ToFセンサとサーボで物体の位置特定
         print("find position of object")
         target_x, target_y = find_pos(timing)
+        if target_x < 0 or target_y < 0:
+            continue
         #print("\n x:%d mm \t y:%d mm\n" % (target_x, target_y))
-        
         # 物体の座標x,y(通信で使う変数2,3:target_x, target_y)
         target_x /= 10 # mmからcmに変換
         target_y /= 10 # mmからcmに変換
- 
-        target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
-        if target_x < 0 or target_y < 0:
-            continue
-        target_x, target_y = int(target_x), int(target_y)
-        print(f"Target position: ({target_x}, {target_y})")
+        # target_x, target_y = MATRIX_WIDTH / 2, MATRIX_HEIGHT / 2 # デバック用
+        # サーボ分の筐体と筐体の間をy座標に足す
+        target_y += SLAVE_SPACE * SLAVE_COLS
 
-        multi_animation(server, target_x, target_y, data_total)
-        time.sleep(5) # デバッグ用
+        
+        print(f"Global Target position: ({target_x}, {target_y})")
+        target_x, target_y = int(target_x), int(target_y)
+
+        print()
+        subprocess.Popen(['mpg321',MP3_PATH])
+        print()
+
+        # グローバル座標に変換
+        target_x += SLAVE_ORIGIN_X
+        target_y += SLAVE_ORIGIN_Y
+        sensor_data = {
+            "type": "sensor_data",
+            "x": target_x,
+            "y": target_y,
+            "data_total": data_total
+        }
+        master_connection.send_to_master(sensor_data)
+
+        #time.sleep(5) # デバッグ用
 
         
 
@@ -657,19 +680,18 @@ def button_callback(gpio, level, tick):
         elif press_duration >= 0.1:
             # 複数機能に切り替え
             if isSingleMode == True:
-                isSingleMode = False 
-                print(f"isSingleMode = {isSingleMode}\n")               
+                isSingleMode = False
+                print(f"isSingleMode = {isSingleMode}\n")
             # 単体機能に切り替え
             else:
-                command = {"type": "multiend"}
-                server.broadcast(command)
                 isSingleMode = True
-                print(f"isSingleMode = {isSingleMode}\n")   
+                print(f"isSingleMode = {isSingleMode}\n")
+
 
 if __name__ == '__main__':
+    # 単体機能か複数機能か判断
     isSingleMode = True
-    
-     # 初期設定
+    # 初期設定
     valInit()  # 変数の初期化
 
     # ToF起動
@@ -686,21 +708,16 @@ if __name__ == '__main__':
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
     # 初期設定終了
-    
+
     clear_screen()
 
     pressed_time = 0
     released_time = 0
 
-    # ボタンのコールバックを設定
     cb = pi.callback(BUTTON_PIN, pigpio.EITHER_EDGE, button_callback)
 
-    server = MultiClientServer()
-    # サーバーのスレッドを立ち上げてサーバーをつくる
-    server_thread = threading.Thread(target=server.start_server)
-    server_thread.daemon = True # メインが終われば終わる
-    server_thread.start()
-    
+    master_connection = MasterConnection(MASTER_IP, MASTER_PORT, SLAVE_ROWS, SLAVE_COLS)
+
     try:
         while True:
             # 単体機能
@@ -708,14 +725,15 @@ if __name__ == '__main__':
                 print("-------------------------Single Mode Start-----------------------")
                 single_function()
                 print("-----------------------------------------------------------------\n")
-            # 複数機能
+            # 複数機能 (スレーブ)
             else:
                 print("--------------------------Multi Mode Start-----------------------")
-                multi_function(server)
+                multi_slave_function(master_connection)
                 print("-----------------------------------------------------------------\n")
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
     finally:
+        master_connection.stop_connection()
         # コールバックを解除して終了
         cb.cancel()
         pi.stop()
@@ -725,6 +743,6 @@ if __name__ == '__main__':
         tof.stop_ranging()
         # Clear on exit
         clear_screen()
-        server.shutdown()
+
         # システム終了
         sys.exit(0)
