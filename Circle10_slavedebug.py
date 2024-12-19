@@ -88,7 +88,6 @@ DATA_TOTAL_MIN = 1500
 DATA_TOTAL_INTERVAL = 300
 
 def quitting():
-    global master_connection
     master_connection.stop_connection()
     # コールバックを解除して終了
     cb.cancel()
@@ -212,6 +211,7 @@ class MasterConnection:
             self.listen_for_master()
 
     def stop_connection(self):
+        global isSingleMode
         """接続を停止"""
         self.running = False
         if self.client_socket:
@@ -219,6 +219,7 @@ class MasterConnection:
                 self.client_socket.shutdown(socket.SHUT_RDWR) # ソケットの読み書き中止。これでlisten_for_masterのrecvがとまる
                 self.client_socket.close()
                 print("> Disconnected from master.")
+                isSingleMode = True
             except Exception as e:
                 print(f"> Error closing connection: {e}")
             self.client_socket = None  # ソケットをリセット

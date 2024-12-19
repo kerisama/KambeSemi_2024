@@ -213,6 +213,7 @@ class MasterConnection:
             self.listen_for_master()
 
     def stop_connection(self):
+        global isSingleMode
         """接続を停止"""
         self.running = False
         if self.client_socket:
@@ -220,6 +221,8 @@ class MasterConnection:
                 self.client_socket.shutdown(socket.SHUT_RDWR) # ソケットの読み書き中止。これでlisten_for_masterのrecvがとまる
                 self.client_socket.close()
                 print("> Disconnected from master.")
+                # 接続が切れたら単体機能に
+                isSingleMode = True
             except Exception as e:
                 print(f"> Error closing connection: {e}")
             self.client_socket = None  # ソケットをリセット
