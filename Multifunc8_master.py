@@ -1,4 +1,3 @@
-# Circle5_slave
 import RPi.GPIO as GPIO
 import pigpio  # GPIO制御
 import socket
@@ -40,8 +39,7 @@ pi.set_glitch_filter(BUTTON_PIN, 50000)
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
 
-# 圧力合計の最小値
-DATA_TOTAL_MIN = 2000
+# 音楽の切り替えの間の値
 DATA_TOTAL_INTERVAL = 300
 
 # 周期ごとの度数
@@ -57,7 +55,7 @@ X_OUT = 50
 Y_OUT = DISPLAY_Y - 7
 # ToFセンサの誤差(mm)
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
-DISTANCE_ERROR = 30
+DISTANCE_ERROR = 0
 
 # Matrix setting
 MATRIX_WIDTH = 16
@@ -691,6 +689,26 @@ if __name__ == '__main__':
     print("Timing %d ms" % (timing / 1000))
 
     print()
+
+    # 圧力の合計データの初期化
+    data_total = 0
+    # ４箇所の圧力を測定
+    for i in range(4):
+        # センサのチャンネルの切り替え
+        data = ReadChannel(i)
+        data_total += data
+        print("channel: %d" % (i))
+        print("A/D Converter: {0}".format(data))
+        volts = ConvertVolts(data,3)
+        print("Volts: {0}".format(volts))
+    # ４つの圧力の合計値(通信する変数1:data_total)
+    print("Data total: {0}\n".format(data_total))
+    
+    # 圧力の最小値を最初の圧力ちをもとに設定
+    DATA_TOTAL_MIN = data_total + 50
+
+    print(f"Presurre total data min: {DATA_TOTAL_MIN}\n")
+
 
     # LED setting
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)

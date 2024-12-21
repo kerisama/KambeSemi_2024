@@ -45,7 +45,7 @@ X_OUT = 50
 Y_OUT = DISPLAY_Y - 7
 # ToFセンサの誤差(mm)
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
-DISTANCE_ERROR = 30
+DISTANCE_ERROR = 0
 
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
@@ -69,8 +69,8 @@ MASTER_PORT = 5000
 
 
 # スレーブの列・行番号 (マスターを0,0とする)
-SLAVE_ROWS = 1  # 横方向
-SLAVE_COLS = 0  # 縦方向
+SLAVE_ROWS = 0  # 横方向
+SLAVE_COLS = 1  # 縦方向
 # スレーブ1の担当領域
 SLAVE_ORIGIN_X = LED_PER_PANEL * SLAVE_ROWS  # x方向のオフセット
 SLAVE_ORIGIN_Y = LED_PER_PANEL * SLAVE_COLS  # y方向のオフセット
@@ -83,8 +83,7 @@ MATRIX_GLOBAL_HEIGHT = (SLAVE_COLS + 1) * LED_PER_PANEL
 # 円の幅
 CIRCLE_WIDTH = 5
 
-# 圧力合計の最小値
-DATA_TOTAL_MIN = 2000
+# 音楽の切り替えの間の値
 DATA_TOTAL_INTERVAL = 300
 
 def quitting():
@@ -573,7 +572,6 @@ def single_function():
 def multi_slave_function(master_connection: MasterConnection):
     global isSingleMode
 
-    
     # マスター接続を開始
     master_connection.start_connection()
     # 接続を待つ
@@ -710,6 +708,25 @@ if __name__ == '__main__':
     print("Timing %d ms" % (timing / 1000))
 
     print()
+
+    # 圧力の合計データの初期化
+    data_total = 0
+    # ４箇所の圧力を測定
+    for i in range(4):
+        # センサのチャンネルの切り替え
+        data = ReadChannel(i)
+        data_total += data
+        print("channel: %d" % (i))
+        print("A/D Converter: {0}".format(data))
+        volts = ConvertVolts(data,3)
+        print("Volts: {0}".format(volts))
+    # ４つの圧力の合計値(通信する変数1:data_total)
+    print("Data total: {0}\n".format(data_total))
+    
+    # 圧力の最小値を最初の圧力ちをもとに設定
+    DATA_TOTAL_MIN = data_total + 50
+
+    print(f"Presurre total data min: {DATA_TOTAL_MIN}\n")
 
     # LED setting
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
