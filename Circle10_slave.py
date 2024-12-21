@@ -45,7 +45,7 @@ X_OUT = 50
 Y_OUT = DISPLAY_Y - 7
 # ToFセンサの誤差(mm)
 # 誤差の測定方法はVL53L0X_example.pyで定規つかって測定
-DISTANCE_ERROR = 30
+DISTANCE_ERROR = 0
 
 # Create a VL53L0X object
 tof = VL53L0X.VL53L0X()
