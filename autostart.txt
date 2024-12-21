@@ -1,0 +1,15 @@
+[Unit]
+Description=Autostart Service
+After=network.target
+
+[Service]
+# 22RD044の部分を自分の学籍番号に変える
+ExecStart=/usr/bin/python3  /home/22RD044/KambeSemi_2024/Circle10_slave.py
+WorkingDirectory=/home/22RD044/KambeSemi_2024
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
