@@ -655,7 +655,7 @@ def multi_slave_function(master_connection: MasterConnection):
             "type": "sensor_data",
             "x": target_x,
             "y": target_y,
-            "data_total": data_total
+            "data_total": data_total - DATA_TOTAL_MIN
         }
         master_connection.send_to_master(sensor_data)
 

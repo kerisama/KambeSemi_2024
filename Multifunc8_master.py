@@ -465,7 +465,7 @@ def animate_circles(xc, yc, colors, max_radius):
 def multi_animation(server, x, y, data_total):
     colors = []
     # 圧力値をもとに最大半径を決める
-    max_radius = int((4000 - data_total) / 50)
+    max_radius = int(data_total / 5)
 
     # 最大半径の最小値はCIRCLE_WIDTH + 1
     if max_radius <= CIRCLE_WIDTH:
@@ -637,7 +637,7 @@ def multi_function(server):
         subprocess.Popen(['mpg321', MP3_PATH])
         print()
         
-        multi_animation(server, target_x, target_y, data_total)
+        multi_animation(server, target_x, target_y, data_total-DATA_TOTAL_MIN)
         #time.sleep(5) # デバッグ用
 
         
