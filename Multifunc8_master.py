@@ -78,7 +78,7 @@ MATRIX_GLOBAL_WIDTH = MATRIX_ROWS * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = MATRIX_COLS * LED_PER_PANEL
 
 # 円の幅
-CIRCLE_WIDTH = 5
+CIRCLE_WIDTH = 7
 
 # 通信設定
 PORT = 5000
@@ -447,7 +447,7 @@ def animate_circles(xc, yc, colors, max_radius):
         #print("Draw Circle :radius = %d,\t Clear Circle :radius = %d" % (radius, clear_radius))
         if radius < max_radius:
             circle = circle_pixels(xc, yc, radius)
-            color = colors[radius]
+            color = colors[radius % CIRCLE_WIDTH]
 
             draw_frame(circle, color)
             
@@ -475,7 +475,7 @@ def multi_animation(server, x, y, data_total):
     #x, y = random.randint(0, MATRIX_GLOBAL_WIDTH - 1), random.randint(0, MATRIX_GLOBAL_HEIGHT - 1)
     print("x:%d, y:%d. max_radius:%d" % (x, y, max_radius))
 
-    for i in range(max_radius):
+    for i in range(CIRCLE_WIDTH):
         color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
         colors.append(color)
 

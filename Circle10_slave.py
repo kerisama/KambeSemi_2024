@@ -82,7 +82,7 @@ MATRIX_GLOBAL_WIDTH = (SLAVE_ROWS + 1) * LED_PER_PANEL
 MATRIX_GLOBAL_HEIGHT = (SLAVE_COLS + 1) * LED_PER_PANEL
 
 # 円の幅
-CIRCLE_WIDTH = 5
+CIRCLE_WIDTH = 7
 
 # 音楽の切り替えの間の値
 DATA_TOTAL_INTERVAL = 300
@@ -469,7 +469,7 @@ def animate_slave_circles(xc, yc, colors, max_radius):
             break
         if radius < max_radius:
             circle = circle_pixels(xc, yc, radius)
-            color = colors[radius]
+            color = colors[radius % CIRCLE_WIDTH]
             
             draw_slave(circle, color)
 
